@@ -157,7 +157,7 @@
 
     <!-- 2. 점수 입력 패널 -->
     <div class="card" id="round-panel" style="display:none;">
-        <h2>2. 라운드 점수 카운팅</h2>
+        <h2 id="round-title">2. 라운드 점수 카운팅</h2>
         <div id="capture-live-game-zone">
             <div class="live-match-scoreboard">
                 <div class="live-team-box team-a">
@@ -553,6 +553,7 @@
         document.getElementById('round-title').textContent = appState.roundNum + " 라운드 점수 카운팅";
     }
 
+    // 🛠️ [디버깅 완벽 조치] 매핑 누락 오류 수정 완료 및 정상 기록 활성화
     function addRoundRow() {
         const inp = appState.currentInput;
         let bonusA = 0; let bonusB = 0; let logArray = [];
@@ -560,7 +561,10 @@
         const tichuSnapshot = JSON.parse(JSON.stringify(inp.tichu));
 
         ['a1','a2','b1','b2'].forEach(p => {
-            const status = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2'); const pName = appState.players[p];
+            const status = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2'); 
+            // ⭕ 기존에 터지던 코드 수정: 매치 시작 시 등록된 실제 플레이어 이름을 안전하게 호출
+            const pName = appState.players[p] || p; 
+            
             if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; logArray.push(pName+"(라티O)"); }
             if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; logArray.push(pName+"(라티X)"); }
             if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; logArray.push(pName+"(스티O)"); }
@@ -657,7 +661,6 @@
         });
     }
 
-    // [변경 사항] 로그 목록 렌더링 방식 수정 (클릭 시 전체 정보 팝업 바인딩)
     function renderLogHistory() {
         const container = document.getElementById('history-log-container'); if(!container) return;
         container.innerHTML = '';
@@ -676,14 +679,12 @@
         });
     }
 
-    // [신규 기능] 모바일/일반 유저 모두 가능한 개별 로그 상세 조회 얼럿창
     function viewLogDetail(id) {
         const log = globalLogs.find(l => l.id === id);
         if(!log) return;
         alert(`📜 [로그 히스토리 상세 내용]\n\n📌 기록 일시: ${log.date}\n📝 입력 정보: ${log.info}`);
     }
 
-    // [변경 사항] 단일 로그 삭제 시 관리자 패스워드 인증 강제 주입
     function deleteLogItem(id) {
         const password = prompt("🔒 이 이력을 로그에서 영구 삭제하시겠습니까?\n승인을 위해 관리자 비밀번호를 입력하세요:");
         if (password === null) return; 
@@ -695,7 +696,7 @@
         globalLogs = globalLogs.filter(l => l.id !== id);
         saveStatsAndLogsToCloud();
         renderLogHistory();
-        alert("🗑️ 해당 로그 항목이 클라우드와 시스템에서 삭제되었습니다.");
+        alert("🗑️ 해당 로그 항목이 삭제되었습니다.");
     }
 
     function checkAdminPassword() {

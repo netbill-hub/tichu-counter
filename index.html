@@ -115,9 +115,11 @@
         .admin-table input { width: 80px; padding: 4px; text-align: center; border-radius: 4px; border: 1px solid #ccc; }
         
         .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        .history-clickable-zone { flex: 1; display: flex; align-items: center; cursor: pointer; }
+        .history-clickable-zone:hover .history-info { text-decoration: underline; color: #000; }
         .history-date { color: #868e96; font-family: monospace; font-size: 0.85rem; min-width: 130px; }
-        .history-info { flex: 1; margin-left: 15px; color: #495057; }
-        .history-del-btn { display: none; background: none; border: none; color: var(--team-b-color); cursor: pointer; font-size: 1rem; }
+        .history-info { margin-left: 15px; color: #495057; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px; }
+        .history-del-btn { display: none; background: none; border: none; color: var(--team-b-color); cursor: pointer; font-size: 1rem; padding: 0 5px; }
         .admin-mode-active .history-del-btn { display: inline-block; }
 
         .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
@@ -253,7 +255,6 @@
             <tbody id="stats-tbody"></tbody>
         </table>
         
-        <!-- [위치 이동] 전체 초기화 버튼을 대시보드 하단 제어 구역으로 재배치 -->
         <div class="btn-shot-group">
             <button class="btn btn-info" onclick="takeScreenshot('capture-total-stats-zone', '역대_누적_통계')">📸 전체 통계 화면 캡처</button>
             <button class="btn btn-gray" onclick="resetAllData()">⚠️ 전체 초기화</button>
@@ -289,7 +290,6 @@
 </div>
 
 <script>
-    // 🔗 [설정 완료] 파트너님의 Firebase Realtime Database 고유 주소 바인딩 완료
     const FIREBASE_DB_URL = "https://tichu-counter-67384-default-rtdb.firebaseio.com/"; 
 
     let appState = {
@@ -657,22 +657,45 @@
         });
     }
 
+    // [변경 사항] 로그 목록 렌더링 방식 수정 (클릭 시 전체 정보 팝업 바인딩)
     function renderLogHistory() {
         const container = document.getElementById('history-log-container'); if(!container) return;
         container.innerHTML = '';
         if(globalLogs.length === 0) { container.innerHTML = `<div style="text-align:center; color:#999; padding:20px;">이력이 존재하지 않습니다.</div>`; return; }
+        
         globalLogs.forEach(log => {
             const div = document.createElement('div'); div.className = 'history-item';
-            div.innerHTML = `<span class="history-date">${log.date}</span><span class="history-info">${log.info}</span><button class="history-del-btn" onclick="deleteLogItem('${log.id}')">🗑️</button>`;
+            div.innerHTML = `
+                <div class="history-clickable-zone" onclick="viewLogDetail('${log.id}')" title="상세 정보 보기">
+                    <span class="history-date">${log.date}</span>
+                    <span class="history-info">${log.info}</span>
+                </div>
+                <button class="history-del-btn" onclick="deleteLogItem('${log.id}')" title="이 기록 삭제">🗑️</button>
+            `;
             container.appendChild(div);
         });
     }
 
+    // [신규 기능] 모바일/일반 유저 모두 가능한 개별 로그 상세 조회 얼럿창
+    function viewLogDetail(id) {
+        const log = globalLogs.find(l => l.id === id);
+        if(!log) return;
+        alert(`📜 [로그 히스토리 상세 내용]\n\n📌 기록 일시: ${log.date}\n📝 입력 정보: ${log.info}`);
+    }
+
+    // [변경 사항] 단일 로그 삭제 시 관리자 패스워드 인증 강제 주입
     function deleteLogItem(id) {
-        if(!confirm("로그를 삭제하시겠습니까?")) return;
+        const password = prompt("🔒 이 이력을 로그에서 영구 삭제하시겠습니까?\n승인을 위해 관리자 비밀번호를 입력하세요:");
+        if (password === null) return; 
+        if (password !== 'tichu') {
+            alert("🔒 암호가 일치하지 않아 로그 삭제 요청이 반려되었습니다.");
+            return;
+        }
+
         globalLogs = globalLogs.filter(l => l.id !== id);
         saveStatsAndLogsToCloud();
         renderLogHistory();
+        alert("🗑️ 해당 로그 항목이 클라우드와 시스템에서 삭제되었습니다.");
     }
 
     function checkAdminPassword() {
@@ -700,7 +723,6 @@
 
     function deleteAdminRow(btn) { if(confirm("해당 유저를 편집 풀에서 제외할까요?")) { btn.closest('tr').remove(); } }
 
-    /* 관리자 데이터 수정 적용 */
     function saveAdminChanges() {
         if(!confirm("통계를 동기화하시겠습니까?")) return;
         const tbody = document.getElementById('admin-tbody'); const rows = tbody.querySelectorAll('tr'); let newGlobalStats = {};
@@ -716,7 +738,6 @@
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
     }
 
-    /* 전체 초기화 기능 (관리자 패스워드 인증) */
     function resetAllData() {
         const password = prompt("🚨 데이터베이스 전체 포맷 권한이 감지되었습니다.\n승인을 위해 관리자 비밀번호를 입력해 주세요:");
         if (password === null) return;
@@ -733,7 +754,7 @@
         saveState();
         saveStatsAndLogsToCloud(); 
         resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
-        alert("💥 클라우드 및 브라우저의 모든 보관 자료가 공장 초기화되었습니다.");
+        alert("💥 모든 자료가 공장 초기화되었습니다.");
     }
 </script>
 </body>

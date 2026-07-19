@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>티츄 카운터 & 마스터 대시보드</title>
-    <!-- 스크린샷 캡처용 오픈소스 라이브러리 로드 -->
+    <title>티츄 카운터 & 마스터 대시보드 (실시간 연동형)</title>
+    <!-- 스크린샷 캡처 및 Firebase 연동을 위한 라이브러리 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -121,6 +121,9 @@
         .admin-mode-active .history-del-btn { display: inline-block; }
 
         .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+        
+        /* 실시간 네트워크 인디케이터 */
+        #sync-indicator { font-size: 0.8rem; text-align: center; color: #6c757d; margin-top: -15px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -129,6 +132,7 @@
 
 <div class="container">
     <h1>🃏 티츄 카운팅 & 통계 시스템</h1>
+    <div id="sync-indicator">🟢 실시간 클라우드 동기화 모드 작동 중</div>
 
     <!-- 1. 참여자 설정 -->
     <div class="card">
@@ -136,13 +140,13 @@
         <div class="flex-group">
             <div class="flex-child">
                 <div class="team-header team-a-head">A 팀</div>
-                <label>플레이어 1</label><input type="text" id="name_a1" class="input-text" value="A선수1" list="past-players-pool">
-                <label>플레이어 2</label><input type="text" id="name_a2" class="input-text" value="A선수2" list="past-players-pool">
+                <label>플레이어 1</label><input type="text" id="name_a1" class="input-text" value="A선수1" list="past-players-pool" autocomplete="off">
+                <label>플레이어 2</label><input type="text" id="name_a2" class="input-text" value="A선수2" list="past-players-pool" autocomplete="off">
             </div>
             <div class="flex-child">
                 <div class="team-header team-b-head">B 팀</div>
-                <label>플레이어 1</label><input type="text" id="name_b1" class="input-text" value="B선수1" list="past-players-pool">
-                <label>플레이어 2</label><input type="text" id="name_b2" class="input-text" value="B선수2" list="past-players-pool">
+                <label>플레이어 1</label><input type="text" id="name_b1" class="input-text" value="B선수1" list="past-players-pool" autocomplete="off">
+                <label>플레이어 2</label><input type="text" id="name_b2" class="input-text" value="B선수2" list="past-players-pool" autocomplete="off">
             </div>
         </div>
         <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
@@ -151,10 +155,9 @@
         </div>
     </div>
 
-    <!-- 2. 점수 입력 패널 (현재 게임 스크린샷 타겟 영역) -->
+    <!-- 2. 점수 입력 패널 -->
     <div class="card" id="round-panel" style="display:none;">
         <h2 id="round-title">1 라운드 점수 카운팅</h2>
-
         <div id="capture-live-game-zone">
             <div class="live-match-scoreboard">
                 <div class="live-team-box team-a">
@@ -205,14 +208,12 @@
         </div>
 
         <button class="btn btn-green" style="width:100%; margin-top:20px; font-size:1.1rem; padding:12px;" onclick="addRoundRow()">라운드 결과 기록</button>
-        
-        <!-- 현재 게임 스크린샷 버튼 -->
         <div class="btn-shot-group">
             <button class="btn btn-info" onclick="takeScreenshot('capture-live-game-zone', '현재_게임_스코어')">📸 현재 게임 화면 캡처</button>
         </div>
     </div>
 
-    <!-- 3. 현재 경기 실시간 스코어보드 -->
+    <!-- 3. 현재 경기 스코어보드 -->
     <div class="card" id="board-panel" style="display:none;">
         <h2>현재 경기 스코어보드</h2>
         <table>
@@ -237,7 +238,7 @@
         </table>
     </div>
 
-    <!-- 4. 영구 누적 통계 대시보드 (전체 기록 스크린샷 타겟 영역) -->
+    <!-- 4. 역대 누적 통계 대시보드 -->
     <div class="card" id="capture-total-stats-zone">
         <h2>📊 역대 누적 통계 대시보드</h2>
         <table>
@@ -252,7 +253,6 @@
             <tbody id="stats-tbody"></tbody>
         </table>
         
-        <!-- 전체 기록 스크린샷 버튼 -->
         <div class="btn-shot-group">
             <button class="btn btn-info" onclick="takeScreenshot('capture-total-stats-zone', '역대_누적_통계')">📸 전체 통계 화면 캡처</button>
             <button class="btn btn-purple" id="admin-toggle-btn" onclick="checkAdminPassword()">⚙️ 관리자 데이터 강제 수정</button>
@@ -260,14 +260,13 @@
 
         <div class="admin-section" id="admin-panel" style="display: none;">
             <h3 style="color: var(--admin-color); margin-top: 0;">⚙️ 관리자 제어 콘솔 (기존 데이터 관리)</h3>
-            <p style="font-size:0.85rem; color:#666; margin-bottom:10px;">* 기존 플레이어의 스탯을 직접 수정하거나 신규 플레이어를 수동으로 삽입할 수 있습니다.</p>
             <table class="admin-table">
                 <thead>
                     <tr>
                         <th>플레이어 이름</th>
-                        <th>승리 횟수 (승)</th>
+                        <th>승리 (승)</th>
                         <th>총 판수 (판)</th>
-                        <th>티츄 성공 점수 (점)</th>
+                        <th>티츄 성공 (점)</th>
                         <th>삭제</th>
                     </tr>
                 </thead>
@@ -288,36 +287,35 @@
 </div>
 
 <script>
+    // 🔗 [필수 설정] 발급받신 Firebase Realtime Database URL 주소를 여기에 넣어주세요.
+    const FIREBASE_DB_URL = "https://tichu-counter-67384-default-rtdb.firebaseio.com/"; 
+
     let appState = {
-        players: { a1:'', a2:'', b1:'', b2:'' },
-        isLocked: false,
-        roundNum: 1,
-        matchHistory: [],
-        currentInput: {
-            scoreA: 50, scoreB: 50, onetwo: 'none',
-            tichu: { a1:'none', a2:'none', b1:'none', b2:'none' }
-        }
+        players: { a1:'', a2:'', b1:'', b2:'' }, isLocked: false, roundNum: 1, matchHistory: [],
+        currentInput: { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } }
     };
     
     let globalStats = {};
     let globalLogs = []; 
 
     window.onload = function() {
-        try {
-            const localState = localStorage.getItem('tichu_v9_state');
-            const localStats = localStorage.getItem('tichu_v9_stats');
-            const localLogs = localStorage.getItem('tichu_v9_logs');
-            if(localState) appState = JSON.parse(localState);
-            if(localStats) globalStats = JSON.parse(localStats);
-            if(localLogs) globalLogs = JSON.parse(localLogs);
-        } catch(e) { console.error("Storage load block bypass.", e); }
-
+        // 입력창 포커싱 이벤트 연결
         ['a1', 'a2', 'b1', 'b2'].forEach(p => {
             const inputEl = document.getElementById('name_' + p);
             if(inputEl) {
-                inputEl.addEventListener('focus', function() { this.select(); });
+                inputEl.addEventListener('focus', function() { 
+                    this.select(); 
+                    const event = new Event('input', { bubbles: true });
+                    this.dispatchEvent(event);
+                });
             }
         });
+
+        // 진행중인 임시 게임 세션 상태 복구
+        try {
+            const localState = localStorage.getItem('tichu_v10_state');
+            if(localState) appState = JSON.parse(localState);
+        } catch(e){}
 
         if(appState.isLocked) {
             freezeInputs(true);
@@ -326,44 +324,85 @@
             syncUIFromState();
             renderHistoryTable();
         }
-        renderStatsTable();
-        renderLogHistory();
-        buildPastPlayersDatalist();
+
+        // 🚀 클라우드 DB로부터 동적 데이터 연동 시작
+        loadStatsFromCloud();
+        loadLogsFromCloud();
     };
 
-    // [신규] 스크린샷 파일 추출 엔진함수
+    // ☁️ Cloud DB 데이터 수신부
+    function loadStatsFromCloud() {
+        if(FIREBASE_DB_URL.includes("default-rtdb")) return; // 미설정시 스킵
+        fetch(`${FIREBASE_DB_URL}globalStats.json`)
+        .then(res => res.json())
+        .then(data => {
+            if(data) globalStats = data;
+            renderStatsTable();
+            buildPastPlayersDatalist();
+        }).catch(err => console.error("Stats 로드 실패", err));
+    }
+
+    function loadLogsFromCloud() {
+        if(FIREBASE_DB_URL.includes("default-rtdb")) return;
+        fetch(`${FIREBASE_DB_URL}globalLogs.json`)
+        .then(res => res.json())
+        .then(data => {
+            if(data) globalLogs = Array.isArray(data) ? data : Object.values(data);
+            renderLogHistory();
+        }).catch(err => console.error("Logs 로드 실패", err));
+    }
+
+    // ☁️ Cloud DB 데이터 송신부
+    function saveStatsAndLogsToCloud() {
+        if(FIREBASE_DB_URL.includes("default-rtdb")) {
+            // Firebase가 설정되지 않은 경우 로컬에 보관 (폴백모드)
+            try {
+                localStorage.setItem('tichu_v10_stats', JSON.stringify(globalStats));
+                localStorage.setItem('tichu_v10_logs', JSON.stringify(globalLogs));
+            } catch(e){}
+            return;
+        }
+
+        document.getElementById('sync-indicator').textContent = "🔄 서버에 실시간 동기화 중...";
+        
+        // 통계 갱신
+        fetch(`${FIREBASE_DB_URL}globalStats.json`, {
+            method: 'PUT',
+            body: JSON.stringify(globalStats)
+        }).then(() => {
+            // 로그 갱신
+            return fetch(`${FIREBASE_DB_URL}globalLogs.json`, {
+                method: 'PUT',
+                body: JSON.stringify(globalLogs)
+            });
+        }).then(() => {
+            document.getElementById('sync-indicator').textContent = "🟢 실시간 클라우드 동기화 완료";
+        }).catch(err => {
+            document.getElementById('sync-indicator').textContent = "🔴 동기화 실패 (네트워크 확인)";
+            console.error(err);
+        });
+    }
+
+    function saveState() {
+        try { localStorage.setItem('tichu_v10_state', JSON.stringify(appState)); } catch(e){}
+    }
+
     function takeScreenshot(targetId, fileName) {
         const target = document.getElementById(targetId);
         if(!target) return;
-        
-        // 버튼 캡처 방지를 위해 캡처 시작 전 스크린샷 버튼 영역 임시 숨김
         const buttons = target.querySelectorAll('.btn-shot-group');
         buttons.forEach(b => b.style.visibility = 'hidden');
 
-        html2canvas(target, {
-            scale: 2, // 해상도 2배 선명하게 보정
-            backgroundColor: "#ffffff",
-            useCORS: true
-        }).then(canvas => {
-            // 버튼 영역 복구
+        html2canvas(target, { scale: 2, backgroundColor: "#ffffff", useCORS: true }).then(canvas => {
             buttons.forEach(b => b.style.visibility = 'visible');
-
             const link = document.createElement('a');
             link.download = `${fileName}_${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
         }).catch(err => {
             buttons.forEach(b => b.style.visibility = 'visible');
-            alert("스크린샷 기능 실행 중 요류가 발생했습니다: " + err);
+            alert("캡처 오류: " + err);
         });
-    }
-
-    function saveToStorage() {
-        try {
-            localStorage.setItem('tichu_v9_state', JSON.stringify(appState));
-            localStorage.setItem('tichu_v9_stats', JSON.stringify(globalStats));
-            localStorage.setItem('tichu_v9_logs', JSON.stringify(globalLogs));
-        } catch(e){}
     }
 
     function buildPastPlayersDatalist() {
@@ -403,24 +442,19 @@
             b1: document.getElementById('name_b1').value.trim(),
             b2: document.getElementById('name_b2').value.trim()
         };
-        if(!names.a1 || !names.a2 || !names.b1 || !names.b2) { alert("모든 플레이어의 이름을 입력해 주세요."); return; }
+        if(!names.a1 || !names.a2 || !names.b1 || !names.b2) { alert("플레이어 이름을 모두 작성해 주세요."); return; }
         
         appState.players = names;
         appState.isLocked = true;
         freezeInputs(true);
-        
         document.getElementById('round-panel').style.display = 'block';
         document.getElementById('board-panel').style.display = 'block';
-        
         resetRoundInputValues();
-        saveToStorage();
+        saveState();
     }
 
     function resetRoundInputValues() {
-        appState.currentInput = {
-            scoreA: 50, scoreB: 50, onetwo: 'none',
-            tichu: { a1:'none', a2:'none', b1:'none', b2:'none' }
-        };
+        appState.currentInput = { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } };
         syncUIFromState();
     }
 
@@ -444,13 +478,11 @@
             appState.currentInput.scoreA = 200; appState.currentInput.scoreB = 0; 
             if(appState.currentInput.tichu.b1 === 'lt_win' || appState.currentInput.tichu.b1 === 'st_win') appState.currentInput.tichu.b1 = 'none';
             if(appState.currentInput.tichu.b2 === 'lt_win' || appState.currentInput.tichu.b2 === 'st_win') appState.currentInput.tichu.b2 = 'none';
-        } 
-        else if(mode === 'B') { 
+        } else if(mode === 'B') { 
             appState.currentInput.scoreA = 0; appState.currentInput.scoreB = 200; 
             if(appState.currentInput.tichu.a1 === 'lt_win' || appState.currentInput.tichu.a1 === 'st_win') appState.currentInput.tichu.a1 = 'none';
             if(appState.currentInput.tichu.a2 === 'lt_win' || appState.currentInput.tichu.a2 === 'st_win') appState.currentInput.tichu.a2 = 'none';
-        } 
-        else { 
+        } else { 
             appState.currentInput.scoreA = 50; appState.currentInput.scoreB = 50; 
         }
         syncUIFromState();
@@ -459,18 +491,11 @@
     function setTichuState(pCode, value) {
         const current = appState.currentInput.tichu;
         const isTeamA = (pCode === 'a1' || pCode === 'a2');
-        
         if(value === 'lt_win' || value === 'st_win') {
             if(appState.currentInput.onetwo === 'A' && !isTeamA) appState.currentInput.onetwo = 'none';
             if(appState.currentInput.onetwo === 'B' && isTeamA) appState.currentInput.onetwo = 'none';
-
-            ['a1','a2','b1','b2'].forEach(k => {
-                if (k !== pCode && (current[k] === 'lt_win' || current[k] === 'st_win')) {
-                    current[k] = 'none';
-                }
-            });
+            ['a1','a2','b1','b2'].forEach(k => { if (k !== pCode && (current[k] === 'lt_win' || current[k] === 'st_win')) current[k] = 'none'; });
         }
-        
         current[pCode] = value;
         syncUIFromState();
     }
@@ -479,52 +504,37 @@
         const inp = appState.currentInput;
         document.getElementById('disp_a').textContent = inp.scoreA;
         document.getElementById('disp_b').textContent = inp.scoreB;
-
-        ['none', 'A', 'B'].forEach(m => {
-            document.getElementById('ot_'+m).className = (inp.onetwo === m) ? 'opt-btn active-win' : 'opt-btn';
-        });
-
+        ['none', 'A', 'B'].forEach(m => { document.getElementById('ot_'+m).className = (inp.onetwo === m) ? 'opt-btn active-win' : 'opt-btn'; });
         const isOt = inp.onetwo !== 'none';
         document.getElementById('minus_a').disabled = isOt; document.getElementById('plus_a').disabled = isOt;
         document.getElementById('minus_b').disabled = isOt; document.getElementById('plus_b').disabled = isOt;
 
         ['a1','a2','b1','b2'].forEach(p => {
-            const container = document.getElementById('tichu_ui_'+p);
-            if(!container) return;
-            const name = appState.players[p];
-            const currentVal = inp.tichu[p];
-            const isTeamA = (p === 'a1' || p === 'a2');
-            
+            const container = document.getElementById('tichu_ui_'+p); if(!container) return;
+            const name = appState.players[p]; const currentVal = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2');
             const disableWinOpt = (inp.onetwo === 'A' && !isTeamA) || (inp.onetwo === 'B' && isTeamA);
 
             container.innerHTML = `
                 <div style="font-weight:bold; margin-bottom:3px;">${name}</div>
                 <div class="option-group">
                     <button class="opt-btn ${currentVal==='none'?'active-win':''}" onclick="setTichuState('${p}','none')">안함</button>
-                    <button class="opt-btn ${currentVal==='lt_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''} onclick="setTichuState('${p}','lt_win')">라티O</button>
+                    <button class="opt-btn ${currentVal==='lt_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3;"' : ''} onclick="setTichuState('${p}','lt_win')">라티O</button>
                     <button class="opt-btn ${currentVal==='lt_fail'?'active-fail':''}" onclick="setTichuState('${p}','lt_fail')">라티X</button>
-                    <button class="opt-btn ${currentVal==='st_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''} onclick="setTichuState('${p}','st_win')">스티O</button>
+                    <button class="opt-btn ${currentVal==='st_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3;"' : ''} onclick="setTichuState('${p}','st_win')">스티O</button>
                     <button class="opt-btn ${currentVal==='st_fail'?'active-fail':''}" onclick="setTichuState('${p}','st_fail')">스티X</button>
-                </div>
-            `;
+                </div>`;
         });
         document.getElementById('round-title').textContent = appState.roundNum + " 라운드 점수 카운팅";
     }
 
     function addRoundRow() {
         const inp = appState.currentInput;
-        let bonusA = 0; let bonusB = 0;
-        let logArray = [];
-
+        let bonusA = 0; let bonusB = 0; let logArray = [];
         if(inp.onetwo !== 'none') logArray.push(inp.onetwo + "팀 원투");
-
         const tichuSnapshot = JSON.parse(JSON.stringify(inp.tichu));
 
         ['a1','a2','b1','b2'].forEach(p => {
-            const status = inp.tichu[p];
-            const isTeamA = (p === 'a1' || p === 'a2');
-            const pName = appState.players[p];
-
+            const status = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2'); const pName = appState.players[p];
             if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; logArray.push(pName+"(라티O)"); }
             if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; logArray.push(pName+"(라티X)"); }
             if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; logArray.push(pName+"(스티O)"); }
@@ -532,40 +542,28 @@
         });
 
         appState.matchHistory.push({
-            round: appState.roundNum, calcA: inp.scoreA + bonusA, calcB: inp.scoreB + bonusB,
-            meta: logArray.join(', ') || '정규 스코어링',
+            round: appState.roundNum, calcA: inp.scoreA + bonusA, calcB: inp.scoreB + bonusB, meta: logArray.join(', ') || '정규 스코어링',
             back_scoreA: inp.scoreA, back_scoreB: inp.scoreB, back_onetwo: inp.onetwo, back_tichu: tichuSnapshot
         });
 
-        appState.roundNum++;
-        resetRoundInputValues();
-        saveToStorage();
-        renderHistoryTable();
+        appState.roundNum++; resetRoundInputValues(); saveState(); renderHistoryTable();
     }
 
     function rollbackRoundRow(index) {
-        if(!confirm("⚠️ 해당 라운드 기록을 완전히 취소하고 입력 단계로 다시 소환할까요?")) return;
+        if(!confirm("해당 라운드를 취소하시겠습니까?")) return;
         const target = appState.matchHistory[index];
         appState.currentInput = { scoreA: target.back_scoreA, scoreB: target.back_scoreB, onetwo: target.back_onetwo, tichu: target.back_tichu };
         appState.matchHistory = appState.matchHistory.slice(0, index);
         appState.roundNum = appState.matchHistory.length + 1;
-        syncUIFromState(); renderHistoryTable(); saveToStorage();
+        syncUIFromState(); renderHistoryTable(); saveState();
     }
 
     function renderHistoryTable() {
-        const tbody = document.getElementById('board-tbody');
-        tbody.innerHTML = ''; let accA = 0; let accB = 0;
-
+        const tbody = document.getElementById('board-tbody'); tbody.innerHTML = ''; let accA = 0; let accB = 0;
         appState.matchHistory.forEach((h, idx) => {
             accA += h.calcA; accB += h.calcB;
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${h.round} R</td>
-                <td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:#666; font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td>
-                <td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:#666; font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td>
-                <td style="font-size:0.85rem; text-align:left; color:#555;">${h.meta}</td>
-                <td><button class="btn btn-red" style="padding:2px 6px; font-size:0.75rem;" onclick="rollbackRoundRow(${idx})">↩️ 취소</button></td>
-            `;
+            tr.innerHTML = `<td>${h.round} R</td><td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:#666; font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td><td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:#666; font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td><td>${h.meta}</td><td><button class="btn btn-red" style="padding:2px 6px; font-size:0.75rem;" onclick="rollbackRoundRow(${idx})">↩️ 취소</button></td>`;
             tbody.appendChild(tr);
         });
         document.getElementById('sum_a').textContent = accA + " 점"; document.getElementById('sum_b').textContent = accB + " 점";
@@ -576,7 +574,7 @@
         if(appState.matchHistory.length === 0) return;
         let finalA = 0; let finalB = 0;
         appState.matchHistory.forEach(h => { finalA += h.calcA; finalB += h.calcB; });
-        if(finalA === finalB) { alert("동점 상황은 연장 라운드가 필요합니다."); return; }
+        if(finalA === finalB) { alert("동점입니다. 연장 라운드를 진행하세요."); return; }
 
         const winnerTeam = finalA > finalB ? 'A' : 'B';
         const p = appState.players; const roundList = appState.matchHistory;
@@ -598,23 +596,27 @@
             });
         });
 
-        const logContent = `[플레이 결과] ${p.a1}, ${p.a2} VS ${p.b1}, ${p.b2} (승리: ${winnerTeam}팀)`;
-        pushLog(logContent);
+        pushLog(`[플레이 결과] ${p.a1}, ${p.a2} VS ${p.b1}, ${p.b2} (승리: ${winnerTeam}팀)`);
 
-        alert(`매치 종료 결과가 전송되었습니다.`);
         appState.roundNum = 1; appState.matchHistory = []; appState.isLocked = false;
         freezeInputs(false);
         document.getElementById('round-panel').style.display = 'none';
         document.getElementById('board-panel').style.display = 'none';
         document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
 
-        saveToStorage(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+        saveState();
+        
+        // 🚀 데이터 전송 동기화 호출
+        saveStatsAndLogsToCloud(); 
+        renderStatsTable();
+        renderLogHistory();
+        buildPastPlayersDatalist();
     }
 
     function renderStatsTable() {
         const tbody = document.getElementById('stats-tbody'); if(!tbody) return;
         tbody.innerHTML = ''; const keys = Object.keys(globalStats);
-        if(keys.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="color:#868e96;">기록된 매치 통계가 없습니다.</td></tr>`; return; }
+        if(keys.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="color:#868e96;">데이터가 없습니다.</td></tr>`; return; }
         let maxWin = -1; let maxRate = -1; let maxTp = -1;
         const processedRows = keys.map(k => {
             const obj = globalStats[k]; const winRate = obj.matches > 0 ? Math.round((obj.wins / obj.matches) * 100) : 0;
@@ -634,7 +636,7 @@
     function renderLogHistory() {
         const container = document.getElementById('history-log-container'); if(!container) return;
         container.innerHTML = '';
-        if(globalLogs.length === 0) { container.innerHTML = `<div style="text-align:center; color:#999; padding:20px;">누적된 변경 이력이 존재하지 않습니다.</div>`; return; }
+        if(globalLogs.length === 0) { container.innerHTML = `<div style="text-align:center; color:#999; padding:20px;">이력이 존재하지 않습니다.</div>`; return; }
         globalLogs.forEach(log => {
             const div = document.createElement('div'); div.className = 'history-item';
             div.innerHTML = `<span class="history-date">${log.date}</span><span class="history-info">${log.info}</span><button class="history-del-btn" onclick="deleteLogItem('${log.id}')">🗑️</button>`;
@@ -643,16 +645,18 @@
     }
 
     function deleteLogItem(id) {
-        if(!confirm("정말로 이 히스토리 항목을 로그에서 삭제하시겠습니까?")) return;
-        globalLogs = globalLogs.filter(l => l.id !== id); saveToStorage(); renderLogHistory();
+        if(!confirm("로그를 삭제하시겠습니까?")) return;
+        globalLogs = globalLogs.filter(l => l.id !== id);
+        saveStatsAndLogsToCloud();
+        renderLogHistory();
     }
 
     function checkAdminPassword() {
         const panel = document.getElementById('admin-panel');
         if(panel.style.display === 'block') { panel.style.display = 'none'; document.body.classList.remove('admin-mode-active'); return; }
-        const password = prompt("보안 자격 확인을 위해 관리자 비밀번호를 입력하세요:");
+        const password = prompt("관리자 비밀번호를 입력하세요:");
         if(password === 'tichu') { panel.style.display = 'block'; document.body.classList.add('admin-mode-active'); renderAdminPanelTable(); }
-        else if(password !== null) { alert("🔒 암호가 다릅니다. 관리자 접근 권한이 거부되었습니다."); }
+        else if(password !== null) { alert("🔒 암호가 일치하지 않습니다."); }
     }
 
     function renderAdminPanelTable() {
@@ -670,31 +674,34 @@
         tbody.appendChild(tr);
     }
 
-    function deleteAdminRow(btn) { if(confirm("이 플레이어 기록 행을 편집 풀에서 임시 제외할까요?")) { btn.closest('tr').remove(); } }
+    function deleteAdminRow(btn) { if(confirm("해당 유저를 편집 풀에서 제외할까요?")) { btn.closest('tr').remove(); } }
 
     function saveAdminChanges() {
-        if(!confirm("수정된 스탯 데이터를 기반으로 역대 영구 누적 통계를 갱신하시겠습니까?")) return;
+        if(!confirm("통계를 동기화하시겠습니까?")) return;
         const tbody = document.getElementById('admin-tbody'); const rows = tbody.querySelectorAll('tr'); let newGlobalStats = {};
         for(let i=0; i<rows.length; i++) {
             const name = rows[i].querySelector('.adm-name').value.trim(); const wins = parseInt(rows[i].querySelector('.adm-wins').value) || 0; const matches = parseInt(rows[i].querySelector('.adm-matches').value) || 0; const tichuPoints = parseInt(rows[i].querySelector('.adm-tp').value) || 0;
-            if(!name) { alert("빈 이름 필드가 존재합니다."); return; } if(wins > matches) { alert(`[오류] ${name}의 승리 판수가 총 매치 판수보다 큽니다.`); return; }
+            if(!name) { alert("빈 필드가 있습니다."); return; } if(wins > matches) { alert("승리 판수가 총 판수보다 큽니다."); return; }
             newGlobalStats[name] = { name, wins, matches, tichuPoints };
         }
-        globalStats = newGlobalStats; pushLog(`[관리자 수정] 외부 보정 및 누적 데이터 통합 스탯 편집 보정`);
-        saveToStorage(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+        globalStats = newGlobalStats; pushLog(`[관리자 수정] 외부 데이터 연동 통합 편집 수정`);
+        
+        saveStatsAndLogsToCloud(); 
+        renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
-        alert("🔒 영구 대시보드 스탯 갱신 및 데이터 동기화 완료!");
     }
 
     function resetAllData() {
-        if(!confirm("모든 세션, 누적 통계, 그리고 로그 기록을 포맷하시겠습니까?")) return;
-        try { localStorage.clear(); } catch(e){}
+        if(!confirm("클라우드 데이터를 포함한 모든 통계가 영구 삭제됩니다. 진행할까요?")) return;
         appState = { players: { a1:'', a2:'', b1:'', b2:'' }, isLocked: false, roundNum: 1, matchHistory: [], currentInput: { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } } };
         globalStats = {}; globalLogs = [];
         freezeInputs(false);
         document.getElementById('name_a1').value = "A선수1"; document.getElementById('name_a2').value = "A선수2"; document.getElementById('name_b1').value = "B선수1"; document.getElementById('name_b2').value = "B선수2";
         document.getElementById('round-panel').style.display = 'none'; document.getElementById('board-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
         document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
+        
+        saveState();
+        saveStatsAndLogsToCloud(); 
         resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
     }
 </script>

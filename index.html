@@ -149,14 +149,13 @@
             </div>
         </div>
         <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
-            <button class="btn btn-gray" onclick="resetAllData()">전체 초기화</button>
             <button class="btn btn-blue" id="lock-btn" onclick="lockPlayers()">게임 매치 시작</button>
         </div>
     </div>
 
     <!-- 2. 점수 입력 패널 -->
     <div class="card" id="round-panel" style="display:none;">
-        <h2 id="round-title">1 라운드 점수 카운팅</h2>
+        <h2>2. 라운드 점수 카운팅</h2>
         <div id="capture-live-game-zone">
             <div class="live-match-scoreboard">
                 <div class="live-team-box team-a">
@@ -207,7 +206,9 @@
         </div>
 
         <button class="btn btn-green" style="width:100%; margin-top:20px; font-size:1.1rem; padding:12px;" onclick="addRoundRow()">라운드 결과 기록</button>
+        
         <div class="btn-shot-group">
+            <button class="btn btn-red" onclick="cancelCurrentMatch()">❌ 게임 매치 취소</button>
             <button class="btn btn-info" onclick="takeScreenshot('capture-live-game-zone', '현재_게임_스코어')">📸 현재 게임 화면 캡처</button>
         </div>
     </div>
@@ -252,8 +253,10 @@
             <tbody id="stats-tbody"></tbody>
         </table>
         
+        <!-- [위치 이동] 전체 초기화 버튼을 대시보드 하단 제어 구역으로 재배치 -->
         <div class="btn-shot-group">
             <button class="btn btn-info" onclick="takeScreenshot('capture-total-stats-zone', '역대_누적_통계')">📸 전체 통계 화면 캡처</button>
+            <button class="btn btn-gray" onclick="resetAllData()">⚠️ 전체 초기화</button>
             <button class="btn btn-purple" id="admin-toggle-btn" onclick="checkAdminPassword()">⚙️ 관리자 데이터 강제 수정</button>
         </div>
 
@@ -286,7 +289,7 @@
 </div>
 
 <script>
-    // 🔗 [필수 설정] 발급받으신 Firebase Realtime Database URL 주소를 여기에 넣어주세요.
+    // 🔗 [설정 완료] 파트너님의 Firebase Realtime Database 고유 주소 바인딩 완료
     const FIREBASE_DB_URL = "https://tichu-counter-67384-default-rtdb.firebaseio.com/"; 
 
     let appState = {
@@ -386,8 +389,7 @@
             document.getElementById('sync-indicator').textContent = "🟢 실시간 클라우드 동기화 완료";
         })
         .catch(err => {
-            document.getElementById('sync-indicator').textContent = "🔴 동기화 실패 (보안 규칙이나 주소 확인 필요)";
-            alert("❌ 클라우드 전송 실패! Firebase 보안 설정을 확인해 주세요.");
+            document.getElementById('sync-indicator').textContent = "🔴 동기화 실패";
             console.error(err);
         });
     }
@@ -414,7 +416,6 @@
         });
     }
 
-    // 데이터리스트 동적 렌더러
     function buildPastPlayersDatalist() {
         const datalist = document.getElementById('past-players-pool');
         if(!datalist) return;
@@ -461,6 +462,21 @@
         document.getElementById('board-panel').style.display = 'block';
         resetRoundInputValues();
         saveState();
+    }
+
+    function cancelCurrentMatch() {
+        if(!confirm("⚠️ 현재 매치를 취소하시겠습니까?\n지금까지 기록된 라운드 스코어는 모두 파기되며 영구 대시보드 스탯에는 반영되지 않습니다.")) return;
+        appState.roundNum = 1;
+        appState.matchHistory = [];
+        appState.isLocked = false;
+        freezeInputs(false);
+        document.getElementById('round-panel').style.display = 'none';
+        document.getElementById('board-panel').style.display = 'none';
+        document.getElementById('live-board-a').textContent = 0;
+        document.getElementById('live-board-b').textContent = 0;
+        resetRoundInputValues();
+        saveState();
+        alert("🔄 현재 진행 중이던 게임 매치가 정상적으로 취소되었습니다.");
     }
 
     function resetRoundInputValues() {
@@ -684,6 +700,7 @@
 
     function deleteAdminRow(btn) { if(confirm("해당 유저를 편집 풀에서 제외할까요?")) { btn.closest('tr').remove(); } }
 
+    /* 관리자 데이터 수정 적용 */
     function saveAdminChanges() {
         if(!confirm("통계를 동기화하시겠습니까?")) return;
         const tbody = document.getElementById('admin-tbody'); const rows = tbody.querySelectorAll('tr'); let newGlobalStats = {};
@@ -699,18 +716,12 @@
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
     }
 
-    // [변경 완료] 전체 데이터 초기화 시 보안 비밀번호 점검 절차 스크립트
+    /* 전체 초기화 기능 (관리자 패스워드 인증) */
     function resetAllData() {
-        const password = prompt("🚨 경고: 데이터베이스 전체 포맷 권한이 감지되었습니다.\n승인을 위해 관리자 비밀번호를 입력해 주세요:");
-        
-        if (password === null) return; // 취소 버튼을 누른 경우 처리 탈출
-        
-        if (password !== 'tichu') {
-            alert("🔒 암호가 일치하지 않습니다. 데이터 보안 검증에 실패하여 포맷이 전면 취소되었습니다.");
-            return;
-        }
-
-        if(!confirm("비밀번호가 확인되었습니다.\n정말로 클라우드 데이터를 포함한 모든 영구 데이터셋을 포맷하시겠습니까?")) return;
+        const password = prompt("🚨 데이터베이스 전체 포맷 권한이 감지되었습니다.\n승인을 위해 관리자 비밀번호를 입력해 주세요:");
+        if (password === null) return;
+        if (password !== 'tichu') { alert("🔒 암호가 일치하지 않습니다. 데이터 보안 검증에 실패했습니다."); return; }
+        if(!confirm("정말로 클라우드 데이터를 포함한 모든 영구 데이터셋을 포맷하시겠습니까?")) return;
         
         appState = { players: { a1:'', a2:'', b1:'', b2:'' }, isLocked: false, roundNum: 1, matchHistory: [], currentInput: { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } } };
         globalStats = {}; globalLogs = [];
@@ -722,7 +733,7 @@
         saveState();
         saveStatsAndLogsToCloud(); 
         resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
-        alert("💥 클라우드 및 브라우저의 모든 영구 보관 자료가 공장 초기화되었습니다.");
+        alert("💥 클라우드 및 브라우저의 모든 보관 자료가 공장 초기화되었습니다.");
     }
 </script>
 </body>

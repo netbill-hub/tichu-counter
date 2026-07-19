@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>티츄 카운터 & 마스터 대시보드</title>
+    <!-- 스크린샷 캡처용 오픈소스 라이브러리 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f1f3f5;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --team-a-color: #0d6efd;
+            --team-b-color: #dc3545;
+            --success-color: #198754;
+            --text-color: #212529;
+            --admin-color: #6f42c1;
+            --screenshot-color: #0dcaf0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            font-size: 14px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1, h2 { text-align: center; margin-bottom: 20px; color: #343a40; }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .flex-group { display: flex; gap: 15px; }
+        .flex-child { flex: 1; min-width: 0; }
+        .team-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            border-bottom: 3px solid var(--border-color);
+        }
+        .team-a-head { border-color: var(--team-a-color); color: var(--team-a-color); }
+        .team-b-head { border-color: var(--team-b-color); color: var(--team-b-color); }
+        
+        .live-match-scoreboard {
+            display: flex;
+            background: #212529;
+            color: white;
+            border-radius: 10px;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+        }
+        .live-team-box { flex: 1; }
+        .live-score-val { font-size: 2.5rem; font-weight: 900; font-family: monospace; line-height: 1; margin-top: 5px; }
+        .live-team-box.team-a .live-score-val { color: #6ea8fe; }
+        .live-team-box.team-b .live-score-val { color: #ea868f; }
+        .live-vs-divider { display: flex; align-items: center; justify-content: center; color: #6c757d; font-weight: bold; font-size: 1.2rem; }
+
+        .score-controller {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .score-btn {
+            width: 45px;
+            height: 45px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            background: #e9ecef;
+            transition: background 0.2s;
+        }
+        .score-btn:hover { background: #ced4da; }
+        .score-display { font-size: 1.8rem; font-weight: 800; min-width: 70px; text-align: center; }
+
+        button.btn {
+            padding: 10px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-blue { background: var(--team-a-color); color: white; }
+        .btn-red { background: var(--team-b-color); color: white; }
+        .btn-green { background: var(--success-color); color: white; }
+        .btn-gray { background: #6c757d; color: white; }
+        .btn-purple { background: var(--admin-color); color: white; }
+        .btn-info { background: var(--screenshot-color); color: #212529; }
+        
+        .option-group { display: flex; gap: 5px; margin-bottom: 12px; }
+        .opt-btn {
+            flex: 1; padding: 8px 4px; border: 1px solid var(--border-color); background: #fff;
+            border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: bold;
+        }
+        .opt-btn.active-win { background: var(--success-color); color: white; border-color: var(--success-color); }
+        .opt-btn.active-fail { background: var(--team-b-color); color: white; border-color: var(--team-b-color); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; background: white; }
+        th, td { border: 1px solid var(--border-color); padding: 12px 8px; text-align: center; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        
+        .gold-max { color: #b8860b !important; font-weight: 900 !important; background-color: #fffdf0; }
+        .input-text { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 6px; }
+        label { font-weight: bold; display: block; margin: 8px 0 4px 0; }
+        
+        .admin-section { background-color: #f8f4ff; border: 2px dashed var(--admin-color); border-radius: 12px; padding: 15px; margin-top: 20px; }
+        .admin-table input { width: 80px; padding: 4px; text-align: center; border-radius: 4px; border: 1px solid #ccc; }
+        
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        .history-date { color: #868e96; font-family: monospace; font-size: 0.85rem; min-width: 130px; }
+        .history-info { flex: 1; margin-left: 15px; color: #495057; }
+        .history-del-btn { display: none; background: none; border: none; color: var(--team-b-color); cursor: pointer; font-size: 1rem; }
+        .admin-mode-active .history-del-btn { display: inline-block; }
+
+        .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+    </style>
+</head>
+<body>
+
+<datalist id="past-players-pool"></datalist>
+
+<div class="container">
+    <h1>🃏 티츄 카운팅 & 통계 시스템</h1>
+
+    <!-- 1. 참여자 설정 -->
+    <div class="card">
+        <h2>1. 팀 빌딩</h2>
+        <div class="flex-group">
+            <div class="flex-child">
+                <div class="team-header team-a-head">A 팀</div>
+                <label>플레이어 1</label><input type="text" id="name_a1" class="input-text" value="A선수1" list="past-players-pool">
+                <label>플레이어 2</label><input type="text" id="name_a2" class="input-text" value="A선수2" list="past-players-pool">
+            </div>
+            <div class="flex-child">
+                <div class="team-header team-b-head">B 팀</div>
+                <label>플레이어 1</label><input type="text" id="name_b1" class="input-text" value="B선수1" list="past-players-pool">
+                <label>플레이어 2</label><input type="text" id="name_b2" class="input-text" value="B선수2" list="past-players-pool">
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button class="btn btn-gray" onclick="resetAllData()">전체 초기화</button>
+            <button class="btn btn-blue" id="lock-btn" onclick="lockPlayers()">게임 매치 시작</button>
+        </div>
+    </div>
+
+    <!-- 2. 점수 입력 패널 (현재 게임 스크린샷 타겟 영역) -->
+    <div class="card" id="round-panel" style="display:none;">
+        <h2 id="round-title">1 라운드 점수 카운팅</h2>
+
+        <div id="capture-live-game-zone">
+            <div class="live-match-scoreboard">
+                <div class="live-team-box team-a">
+                    <div style="font-size:0.85rem; font-weight:bold; color:#adb5bd;">A 팀 누적</div>
+                    <div class="live-score-val" id="live-board-a">0</div>
+                </div>
+                <div class="live-vs-divider">VS</div>
+                <div class="live-team-box team-b">
+                    <div style="font-size:0.85rem; font-weight:bold; color:#adb5bd;">B 팀 누적</div>
+                    <div class="live-score-val" id="live-board-b">0</div>
+                </div>
+            </div>
+            
+            <label style="text-align:center; font-size:1rem; margin-bottom:8px;">🏆 원투(1등, 2등 독점) 여부</label>
+            <div class="option-group" style="max-width: 400px; margin: 0 auto 20px auto;">
+                <button class="opt-btn" id="ot_none" onclick="changeOneTwo('none')">없음 (일반 계산)</button>
+                <button class="opt-btn" id="ot_A" onclick="changeOneTwo('A')">A팀 원투 (+200)</button>
+                <button class="opt-btn" id="ot_B" onclick="changeOneTwo('B')">B팀 원투 (+200)</button>
+            </div>
+
+            <div class="flex-group">
+                <div class="flex-child" style="background:#f8f9fa; padding:12px; border-radius:8px;">
+                    <div class="team-header team-a-head" style="font-size:1rem; margin-bottom:10px;">A팀 카드 점수</div>
+                    <div class="score-controller">
+                        <button class="score-btn" id="minus_a" onclick="adjustScore('A', -5)">-</button>
+                        <div class="score-display" id="disp_a">50</div>
+                        <button class="score-btn" id="plus_a" onclick="adjustScore('A', 5)">+</button>
+                    </div>
+                    <div style="margin-top:15px; border-top:1px solid #ddd; padding-top:10px;" id="tichu_ui_container_a">
+                        <div id="tichu_ui_a1"></div>
+                        <div id="tichu_ui_a2" style="margin-top:10px;"></div>
+                    </div>
+                </div>
+
+                <div class="flex-child" style="background:#f8f9fa; padding:12px; border-radius:8px;">
+                    <div class="team-header team-b-head" style="font-size:1rem; margin-bottom:10px;">B팀 카드 점수</div>
+                    <div class="score-controller">
+                        <button class="score-btn" id="minus_b" onclick="adjustScore('B', -5)">-</button>
+                        <div class="score-display" id="disp_b">50</div>
+                        <button class="score-btn" id="plus_b" onclick="adjustScore('B', 5)">+</button>
+                    </div>
+                    <div style="margin-top:15px; border-top:1px solid #ddd; padding-top:10px;" id="tichu_ui_container_b">
+                        <div id="tichu_ui_b1"></div>
+                        <div id="tichu_ui_b2" style="margin-top:10px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-green" style="width:100%; margin-top:20px; font-size:1.1rem; padding:12px;" onclick="addRoundRow()">라운드 결과 기록</button>
+        
+        <!-- 현재 게임 스크린샷 버튼 -->
+        <div class="btn-shot-group">
+            <button class="btn btn-info" onclick="takeScreenshot('capture-live-game-zone', '현재_게임_스코어')">📸 현재 게임 화면 캡처</button>
+        </div>
+    </div>
+
+    <!-- 3. 현재 경기 실시간 스코어보드 -->
+    <div class="card" id="board-panel" style="display:none;">
+        <h2>현재 경기 스코어보드</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>라운드</th>
+                    <th style="color:var(--team-a-color);">A팀 누적</th>
+                    <th style="color:var(--team-b-color);">B팀 누적</th>
+                    <th>라운드 상세 정보</th>
+                    <th>제어</th>
+                </tr>
+            </thead>
+            <tbody id="board-tbody"></tbody>
+            <tfoot>
+                <tr style="font-weight:bold; background:#e9ecef;">
+                    <td>합계</td>
+                    <td id="sum_a" style="color:var(--team-a-color); font-size:1.1rem;">0</td>
+                    <td id="sum_b" style="color:var(--team-b-color); font-size:1.1rem;">0</td>
+                    <td colspan="2"><button class="btn btn-blue" style="padding:5px 10px; width:100%;" onclick="commitMatch()">경기 완료 및 데이터 전송</button></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- 4. 영구 누적 통계 대시보드 (전체 기록 스크린샷 타겟 영역) -->
+    <div class="card" id="capture-total-stats-zone">
+        <h2>📊 역대 누적 통계 대시보드</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>이름</th>
+                    <th>승수</th>
+                    <th>승률</th>
+                    <th>티츄 점수 (라티3/스티1)</th>
+                </tr>
+            </thead>
+            <tbody id="stats-tbody"></tbody>
+        </table>
+        
+        <!-- 전체 기록 스크린샷 버튼 -->
+        <div class="btn-shot-group">
+            <button class="btn btn-info" onclick="takeScreenshot('capture-total-stats-zone', '역대_누적_통계')">📸 전체 통계 화면 캡처</button>
+            <button class="btn btn-purple" id="admin-toggle-btn" onclick="checkAdminPassword()">⚙️ 관리자 데이터 강제 수정</button>
+        </div>
+
+        <div class="admin-section" id="admin-panel" style="display: none;">
+            <h3 style="color: var(--admin-color); margin-top: 0;">⚙️ 관리자 제어 콘솔 (기존 데이터 관리)</h3>
+            <p style="font-size:0.85rem; color:#666; margin-bottom:10px;">* 기존 플레이어의 스탯을 직접 수정하거나 신규 플레이어를 수동으로 삽입할 수 있습니다.</p>
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>플레이어 이름</th>
+                        <th>승리 횟수 (승)</th>
+                        <th>총 판수 (판)</th>
+                        <th>티츄 성공 점수 (점)</th>
+                        <th>삭제</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-tbody"></tbody>
+            </table>
+            <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                <button class="btn btn-gray" onclick="addBlankAdminRow()">+ 신규 유저 행 추가</button>
+                <button class="btn btn-purple" onclick="saveAdminChanges()">💾 수정 사항 최종 보관 및 동기화</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 글로벌 로그 히스토리 아카이브 -->
+    <div class="card" id="history-panel-section">
+        <h2>📜 데이터 변경 로그 히스토리</h2>
+        <div id="history-log-container" style="max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 8px; padding: 5px;"></div>
+    </div>
+</div>
+
+<script>
+    let appState = {
+        players: { a1:'', a2:'', b1:'', b2:'' },
+        isLocked: false,
+        roundNum: 1,
+        matchHistory: [],
+        currentInput: {
+            scoreA: 50, scoreB: 50, onetwo: 'none',
+            tichu: { a1:'none', a2:'none', b1:'none', b2:'none' }
+        }
+    };
+    
+    let globalStats = {};
+    let globalLogs = []; 
+
+    window.onload = function() {
+        try {
+            const localState = localStorage.getItem('tichu_v9_state');
+            const localStats = localStorage.getItem('tichu_v9_stats');
+            const localLogs = localStorage.getItem('tichu_v9_logs');
+            if(localState) appState = JSON.parse(localState);
+            if(localStats) globalStats = JSON.parse(localStats);
+            if(localLogs) globalLogs = JSON.parse(localLogs);
+        } catch(e) { console.error("Storage load block bypass.", e); }
+
+        ['a1', 'a2', 'b1', 'b2'].forEach(p => {
+            const inputEl = document.getElementById('name_' + p);
+            if(inputEl) {
+                inputEl.addEventListener('focus', function() { this.select(); });
+            }
+        });
+
+        if(appState.isLocked) {
+            freezeInputs(true);
+            document.getElementById('round-panel').style.display = 'block';
+            document.getElementById('board-panel').style.display = 'block';
+            syncUIFromState();
+            renderHistoryTable();
+        }
+        renderStatsTable();
+        renderLogHistory();
+        buildPastPlayersDatalist();
+    };
+
+    // [신규] 스크린샷 파일 추출 엔진함수
+    function takeScreenshot(targetId, fileName) {
+        const target = document.getElementById(targetId);
+        if(!target) return;
+        
+        // 버튼 캡처 방지를 위해 캡처 시작 전 스크린샷 버튼 영역 임시 숨김
+        const buttons = target.querySelectorAll('.btn-shot-group');
+        buttons.forEach(b => b.style.visibility = 'hidden');
+
+        html2canvas(target, {
+            scale: 2, // 해상도 2배 선명하게 보정
+            backgroundColor: "#ffffff",
+            useCORS: true
+        }).then(canvas => {
+            // 버튼 영역 복구
+            buttons.forEach(b => b.style.visibility = 'visible');
+
+            const link = document.createElement('a');
+            link.download = `${fileName}_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(err => {
+            buttons.forEach(b => b.style.visibility = 'visible');
+            alert("스크린샷 기능 실행 중 요류가 발생했습니다: " + err);
+        });
+    }
+
+    function saveToStorage() {
+        try {
+            localStorage.setItem('tichu_v9_state', JSON.stringify(appState));
+            localStorage.setItem('tichu_v9_stats', JSON.stringify(globalStats));
+            localStorage.setItem('tichu_v9_logs', JSON.stringify(globalLogs));
+        } catch(e){}
+    }
+
+    function buildPastPlayersDatalist() {
+        const datalist = document.getElementById('past-players-pool');
+        if(!datalist) return;
+        datalist.innerHTML = '';
+        Object.keys(globalStats).forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            datalist.appendChild(opt);
+        });
+    }
+
+    function getFormattedDate() {
+        const d = new Date();
+        const pad = (n) => n < 10 ? '0' + n : n;
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function pushLog(infoText) {
+        globalLogs.unshift({
+            id: Date.now() + Math.random().toString(36).substr(2, 5),
+            date: getFormattedDate(),
+            info: infoText
+        });
+    }
+
+    function freezeInputs(flag) {
+        ['a1','a2','b1','b2'].forEach(p => document.getElementById('name_'+p).disabled = flag);
+        document.getElementById('lock-btn').disabled = flag;
+    }
+
+    function lockPlayers() {
+        const names = {
+            a1: document.getElementById('name_a1').value.trim(),
+            a2: document.getElementById('name_a2').value.trim(),
+            b1: document.getElementById('name_b1').value.trim(),
+            b2: document.getElementById('name_b2').value.trim()
+        };
+        if(!names.a1 || !names.a2 || !names.b1 || !names.b2) { alert("모든 플레이어의 이름을 입력해 주세요."); return; }
+        
+        appState.players = names;
+        appState.isLocked = true;
+        freezeInputs(true);
+        
+        document.getElementById('round-panel').style.display = 'block';
+        document.getElementById('board-panel').style.display = 'block';
+        
+        resetRoundInputValues();
+        saveToStorage();
+    }
+
+    function resetRoundInputValues() {
+        appState.currentInput = {
+            scoreA: 50, scoreB: 50, onetwo: 'none',
+            tichu: { a1:'none', a2:'none', b1:'none', b2:'none' }
+        };
+        syncUIFromState();
+    }
+
+    function adjustScore(team, val) {
+        if(appState.currentInput.onetwo !== 'none') return;
+        if(team === 'A') {
+            let nA = appState.currentInput.scoreA + val;
+            if(nA < -25) nA = -25; if(nA > 125) nA = 125;
+            appState.currentInput.scoreA = nA; appState.currentInput.scoreB = 100 - nA;
+        } else {
+            let nB = appState.currentInput.scoreB + val;
+            if(nB < -25) nB = -25; if(nB > 125) nB = 125;
+            appState.currentInput.scoreB = nB; appState.currentInput.scoreA = 100 - nB;
+        }
+        syncUIFromState();
+    }
+
+    function changeOneTwo(mode) {
+        appState.currentInput.onetwo = mode;
+        if(mode === 'A') { 
+            appState.currentInput.scoreA = 200; appState.currentInput.scoreB = 0; 
+            if(appState.currentInput.tichu.b1 === 'lt_win' || appState.currentInput.tichu.b1 === 'st_win') appState.currentInput.tichu.b1 = 'none';
+            if(appState.currentInput.tichu.b2 === 'lt_win' || appState.currentInput.tichu.b2 === 'st_win') appState.currentInput.tichu.b2 = 'none';
+        } 
+        else if(mode === 'B') { 
+            appState.currentInput.scoreA = 0; appState.currentInput.scoreB = 200; 
+            if(appState.currentInput.tichu.a1 === 'lt_win' || appState.currentInput.tichu.a1 === 'st_win') appState.currentInput.tichu.a1 = 'none';
+            if(appState.currentInput.tichu.a2 === 'lt_win' || appState.currentInput.tichu.a2 === 'st_win') appState.currentInput.tichu.a2 = 'none';
+        } 
+        else { 
+            appState.currentInput.scoreA = 50; appState.currentInput.scoreB = 50; 
+        }
+        syncUIFromState();
+    }
+
+    function setTichuState(pCode, value) {
+        const current = appState.currentInput.tichu;
+        const isTeamA = (pCode === 'a1' || pCode === 'a2');
+        
+        if(value === 'lt_win' || value === 'st_win') {
+            if(appState.currentInput.onetwo === 'A' && !isTeamA) appState.currentInput.onetwo = 'none';
+            if(appState.currentInput.onetwo === 'B' && isTeamA) appState.currentInput.onetwo = 'none';
+
+            ['a1','a2','b1','b2'].forEach(k => {
+                if (k !== pCode && (current[k] === 'lt_win' || current[k] === 'st_win')) {
+                    current[k] = 'none';
+                }
+            });
+        }
+        
+        current[pCode] = value;
+        syncUIFromState();
+    }
+
+    function syncUIFromState() {
+        const inp = appState.currentInput;
+        document.getElementById('disp_a').textContent = inp.scoreA;
+        document.getElementById('disp_b').textContent = inp.scoreB;
+
+        ['none', 'A', 'B'].forEach(m => {
+            document.getElementById('ot_'+m).className = (inp.onetwo === m) ? 'opt-btn active-win' : 'opt-btn';
+        });
+
+        const isOt = inp.onetwo !== 'none';
+        document.getElementById('minus_a').disabled = isOt; document.getElementById('plus_a').disabled = isOt;
+        document.getElementById('minus_b').disabled = isOt; document.getElementById('plus_b').disabled = isOt;
+
+        ['a1','a2','b1','b2'].forEach(p => {
+            const container = document.getElementById('tichu_ui_'+p);
+            if(!container) return;
+            const name = appState.players[p];
+            const currentVal = inp.tichu[p];
+            const isTeamA = (p === 'a1' || p === 'a2');
+            
+            const disableWinOpt = (inp.onetwo === 'A' && !isTeamA) || (inp.onetwo === 'B' && isTeamA);
+
+            container.innerHTML = `
+                <div style="font-weight:bold; margin-bottom:3px;">${name}</div>
+                <div class="option-group">
+                    <button class="opt-btn ${currentVal==='none'?'active-win':''}" onclick="setTichuState('${p}','none')">안함</button>
+                    <button class="opt-btn ${currentVal==='lt_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''} onclick="setTichuState('${p}','lt_win')">라티O</button>
+                    <button class="opt-btn ${currentVal==='lt_fail'?'active-fail':''}" onclick="setTichuState('${p}','lt_fail')">라티X</button>
+                    <button class="opt-btn ${currentVal==='st_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : ''} onclick="setTichuState('${p}','st_win')">스티O</button>
+                    <button class="opt-btn ${currentVal==='st_fail'?'active-fail':''}" onclick="setTichuState('${p}','st_fail')">스티X</button>
+                </div>
+            `;
+        });
+        document.getElementById('round-title').textContent = appState.roundNum + " 라운드 점수 카운팅";
+    }
+
+    function addRoundRow() {
+        const inp = appState.currentInput;
+        let bonusA = 0; let bonusB = 0;
+        let logArray = [];
+
+        if(inp.onetwo !== 'none') logArray.push(inp.onetwo + "팀 원투");
+
+        const tichuSnapshot = JSON.parse(JSON.stringify(inp.tichu));
+
+        ['a1','a2','b1','b2'].forEach(p => {
+            const status = inp.tichu[p];
+            const isTeamA = (p === 'a1' || p === 'a2');
+            const pName = appState.players[p];
+
+            if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; logArray.push(pName+"(라티O)"); }
+            if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; logArray.push(pName+"(라티X)"); }
+            if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; logArray.push(pName+"(스티O)"); }
+            if(status === 'st_fail') { bonusA += isTeamA?-100:0; bonusB += isTeamA?0:-100; logArray.push(pName+"(스티X)"); }
+        });
+
+        appState.matchHistory.push({
+            round: appState.roundNum, calcA: inp.scoreA + bonusA, calcB: inp.scoreB + bonusB,
+            meta: logArray.join(', ') || '정규 스코어링',
+            back_scoreA: inp.scoreA, back_scoreB: inp.scoreB, back_onetwo: inp.onetwo, back_tichu: tichuSnapshot
+        });
+
+        appState.roundNum++;
+        resetRoundInputValues();
+        saveToStorage();
+        renderHistoryTable();
+    }
+
+    function rollbackRoundRow(index) {
+        if(!confirm("⚠️ 해당 라운드 기록을 완전히 취소하고 입력 단계로 다시 소환할까요?")) return;
+        const target = appState.matchHistory[index];
+        appState.currentInput = { scoreA: target.back_scoreA, scoreB: target.back_scoreB, onetwo: target.back_onetwo, tichu: target.back_tichu };
+        appState.matchHistory = appState.matchHistory.slice(0, index);
+        appState.roundNum = appState.matchHistory.length + 1;
+        syncUIFromState(); renderHistoryTable(); saveToStorage();
+    }
+
+    function renderHistoryTable() {
+        const tbody = document.getElementById('board-tbody');
+        tbody.innerHTML = ''; let accA = 0; let accB = 0;
+
+        appState.matchHistory.forEach((h, idx) => {
+            accA += h.calcA; accB += h.calcB;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${h.round} R</td>
+                <td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:#666; font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td>
+                <td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:#666; font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td>
+                <td style="font-size:0.85rem; text-align:left; color:#555;">${h.meta}</td>
+                <td><button class="btn btn-red" style="padding:2px 6px; font-size:0.75rem;" onclick="rollbackRoundRow(${idx})">↩️ 취소</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        document.getElementById('sum_a').textContent = accA + " 점"; document.getElementById('sum_b').textContent = accB + " 점";
+        document.getElementById('live-board-a').textContent = accA; document.getElementById('live-board-b').textContent = accB;
+    }
+
+    function commitMatch() {
+        if(appState.matchHistory.length === 0) return;
+        let finalA = 0; let finalB = 0;
+        appState.matchHistory.forEach(h => { finalA += h.calcA; finalB += h.calcB; });
+        if(finalA === finalB) { alert("동점 상황은 연장 라운드가 필요합니다."); return; }
+
+        const winnerTeam = finalA > finalB ? 'A' : 'B';
+        const p = appState.players; const roundList = appState.matchHistory;
+
+        const sessionPlayers = [p.a1, p.a2, p.b1, p.b2];
+        sessionPlayers.forEach(name => {
+            if(!globalStats[name]) globalStats[name] = { name, wins: 0, matches: 0, tichuPoints: 0 };
+            globalStats[name].matches += 1;
+        });
+
+        if(winnerTeam === 'A') { globalStats[p.a1].wins++; globalStats[p.a2].wins++; }
+        else { globalStats[p.b1].wins++; globalStats[p.b2].wins++; }
+
+        roundList.forEach(h => {
+            const rawText = h.meta;
+            sessionPlayers.forEach(name => {
+                if(rawText.includes(name + "(라티O)")) globalStats[name].tichuPoints += 3;
+                if(rawText.includes(name + "(스티O)")) globalStats[name].tichuPoints += 1;
+            });
+        });
+
+        const logContent = `[플레이 결과] ${p.a1}, ${p.a2} VS ${p.b1}, ${p.b2} (승리: ${winnerTeam}팀)`;
+        pushLog(logContent);
+
+        alert(`매치 종료 결과가 전송되었습니다.`);
+        appState.roundNum = 1; appState.matchHistory = []; appState.isLocked = false;
+        freezeInputs(false);
+        document.getElementById('round-panel').style.display = 'none';
+        document.getElementById('board-panel').style.display = 'none';
+        document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
+
+        saveToStorage(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+    }
+
+    function renderStatsTable() {
+        const tbody = document.getElementById('stats-tbody'); if(!tbody) return;
+        tbody.innerHTML = ''; const keys = Object.keys(globalStats);
+        if(keys.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="color:#868e96;">기록된 매치 통계가 없습니다.</td></tr>`; return; }
+        let maxWin = -1; let maxRate = -1; let maxTp = -1;
+        const processedRows = keys.map(k => {
+            const obj = globalStats[k]; const winRate = obj.matches > 0 ? Math.round((obj.wins / obj.matches) * 100) : 0;
+            if(obj.wins > maxWin) maxWin = obj.wins; if(winRate > maxRate) maxRate = winRate; if(obj.tichuPoints > maxTp) maxTp = obj.tichuPoints;
+            return { name: obj.name, wins: obj.wins, rate: winRate, tp: obj.tichuPoints };
+        });
+        processedRows.forEach(row => {
+            const tr = document.createElement('tr');
+            const cWin = (row.wins === maxWin && maxWin > 0) ? 'gold-max' : '';
+            const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
+            const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
+            tr.innerHTML = `<td style="font-weight:bold; background:#fafafa;">${row.name}</td><td class="${cWin}">${row.wins}승</td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderLogHistory() {
+        const container = document.getElementById('history-log-container'); if(!container) return;
+        container.innerHTML = '';
+        if(globalLogs.length === 0) { container.innerHTML = `<div style="text-align:center; color:#999; padding:20px;">누적된 변경 이력이 존재하지 않습니다.</div>`; return; }
+        globalLogs.forEach(log => {
+            const div = document.createElement('div'); div.className = 'history-item';
+            div.innerHTML = `<span class="history-date">${log.date}</span><span class="history-info">${log.info}</span><button class="history-del-btn" onclick="deleteLogItem('${log.id}')">🗑️</button>`;
+            container.appendChild(div);
+        });
+    }
+
+    function deleteLogItem(id) {
+        if(!confirm("정말로 이 히스토리 항목을 로그에서 삭제하시겠습니까?")) return;
+        globalLogs = globalLogs.filter(l => l.id !== id); saveToStorage(); renderLogHistory();
+    }
+
+    function checkAdminPassword() {
+        const panel = document.getElementById('admin-panel');
+        if(panel.style.display === 'block') { panel.style.display = 'none'; document.body.classList.remove('admin-mode-active'); return; }
+        const password = prompt("보안 자격 확인을 위해 관리자 비밀번호를 입력하세요:");
+        if(password === 'tichu') { panel.style.display = 'block'; document.body.classList.add('admin-mode-active'); renderAdminPanelTable(); }
+        else if(password !== null) { alert("🔒 암호가 다릅니다. 관리자 접근 권한이 거부되었습니다."); }
+    }
+
+    function renderAdminPanelTable() {
+        const tbody = document.getElementById('admin-tbody'); tbody.innerHTML = '';
+        Object.keys(globalStats).forEach(k => {
+            const p = globalStats[k]; const tr = document.createElement('tr');
+            tr.innerHTML = `<td><input type="text" value="${p.name}" data-oldname="${p.name}" class="adm-name" style="width:120px; text-align:left;"></td><td><input type="number" value="${p.wins}" class="adm-wins"></td><td><input type="number" value="${p.matches}" class="adm-matches"></td><td><input type="number" value="${p.tichuPoints}" class="adm-tp"></td><td><button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteAdminRow(this)">삭제</button></td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function addBlankAdminRow() {
+        const tbody = document.getElementById('admin-tbody'); const tr = document.createElement('tr');
+        tr.innerHTML = `<td><input type="text" value="" data-oldname="" class="adm-name" style="width:120px; text-align:left;" placeholder="새 이름"></td><td><input type="number" value="0" class="adm-wins"></td><td><input type="number" value="0" class="adm-matches"></td><td><input type="number" value="0" class="adm-tp"></td><td><button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteAdminRow(this)">삭제</button></td>`;
+        tbody.appendChild(tr);
+    }
+
+    function deleteAdminRow(btn) { if(confirm("이 플레이어 기록 행을 편집 풀에서 임시 제외할까요?")) { btn.closest('tr').remove(); } }
+
+    function saveAdminChanges() {
+        if(!confirm("수정된 스탯 데이터를 기반으로 역대 영구 누적 통계를 갱신하시겠습니까?")) return;
+        const tbody = document.getElementById('admin-tbody'); const rows = tbody.querySelectorAll('tr'); let newGlobalStats = {};
+        for(let i=0; i<rows.length; i++) {
+            const name = rows[i].querySelector('.adm-name').value.trim(); const wins = parseInt(rows[i].querySelector('.adm-wins').value) || 0; const matches = parseInt(rows[i].querySelector('.adm-matches').value) || 0; const tichuPoints = parseInt(rows[i].querySelector('.adm-tp').value) || 0;
+            if(!name) { alert("빈 이름 필드가 존재합니다."); return; } if(wins > matches) { alert(`[오류] ${name}의 승리 판수가 총 매치 판수보다 큽니다.`); return; }
+            newGlobalStats[name] = { name, wins, matches, tichuPoints };
+        }
+        globalStats = newGlobalStats; pushLog(`[관리자 수정] 외부 보정 및 누적 데이터 통합 스탯 편집 보정`);
+        saveToStorage(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+        document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
+        alert("🔒 영구 대시보드 스탯 갱신 및 데이터 동기화 완료!");
+    }
+
+    function resetAllData() {
+        if(!confirm("모든 세션, 누적 통계, 그리고 로그 기록을 포맷하시겠습니까?")) return;
+        try { localStorage.clear(); } catch(e){}
+        appState = { players: { a1:'', a2:'', b1:'', b2:'' }, isLocked: false, roundNum: 1, matchHistory: [], currentInput: { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } } };
+        globalStats = {}; globalLogs = [];
+        freezeInputs(false);
+        document.getElementById('name_a1').value = "A선수1"; document.getElementById('name_a2').value = "A선수2"; document.getElementById('name_b1').value = "B선수1"; document.getElementById('name_b2').value = "B선수2";
+        document.getElementById('round-panel').style.display = 'none'; document.getElementById('board-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
+        document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
+        resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+    }
+</script>
+</body>
+</html>

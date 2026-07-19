@@ -287,7 +287,6 @@
 
 <script>
     // 🔗 [필수 설정] 발급받으신 Firebase Realtime Database URL 주소를 여기에 넣어주세요.
-    // 슬래시(/) 유무나 지역 주소 형태에 상관없이 시스템이 하단에서 자동으로 규격을 맞춰 보정합니다.
     const FIREBASE_DB_URL = "https://tichu-counter-67384-default-rtdb.firebaseio.com/"; 
 
     let appState = {
@@ -298,7 +297,6 @@
     let globalStats = {};
     let globalLogs = []; 
 
-    // 주소 예외 필터링 및 포맷 자동 가공 엔진 유틸
     function getCleanBaseUrl() {
         let url = FIREBASE_DB_URL.trim();
         if(!url || url.includes("프로젝트이름")) return null;
@@ -370,7 +368,6 @@
 
         document.getElementById('sync-indicator').textContent = "🔄 서버에 실시간 동기화 중...";
         
-        // 통계 갱신 (서버 파일 직접 치환 강제 명령)
         fetch(`${baseUrl}globalStats.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -378,7 +375,6 @@
         })
         .then(res => {
             if(!res.ok) throw new Error("Stats 업로드 거부됨");
-            // 로그 갱신
             return fetch(`${baseUrl}globalLogs.json`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -391,7 +387,7 @@
         })
         .catch(err => {
             document.getElementById('sync-indicator').textContent = "🔴 동기화 실패 (보안 규칙이나 주소 확인 필요)";
-            alert("❌ 클라우드 전송 실패! Firebase의 '규칙' 탭이 true로 설정되어 있는지 다시 확인해 주세요.");
+            alert("❌ 클라우드 전송 실패! Firebase 보안 설정을 확인해 주세요.");
             console.error(err);
         });
     }
@@ -418,6 +414,7 @@
         });
     }
 
+    // 데이터리스트 동적 렌더러
     function buildPastPlayersDatalist() {
         const datalist = document.getElementById('past-players-pool');
         if(!datalist) return;
@@ -702,8 +699,19 @@
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
     }
 
+    // [변경 완료] 전체 데이터 초기화 시 보안 비밀번호 점검 절차 스크립트
     function resetAllData() {
-        if(!confirm("클라우드 데이터를 포함한 모든 통계가 영구 삭제됩니다. 진행할까요?")) return;
+        const password = prompt("🚨 경고: 데이터베이스 전체 포맷 권한이 감지되었습니다.\n승인을 위해 관리자 비밀번호를 입력해 주세요:");
+        
+        if (password === null) return; // 취소 버튼을 누른 경우 처리 탈출
+        
+        if (password !== 'tichu') {
+            alert("🔒 암호가 일치하지 않습니다. 데이터 보안 검증에 실패하여 포맷이 전면 취소되었습니다.");
+            return;
+        }
+
+        if(!confirm("비밀번호가 확인되었습니다.\n정말로 클라우드 데이터를 포함한 모든 영구 데이터셋을 포맷하시겠습니까?")) return;
+        
         appState = { players: { a1:'', a2:'', b1:'', b2:'' }, isLocked: false, roundNum: 1, matchHistory: [], currentInput: { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } } };
         globalStats = {}; globalLogs = [];
         freezeInputs(false);
@@ -714,6 +722,7 @@
         saveState();
         saveStatsAndLogsToCloud(); 
         resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+        alert("💥 클라우드 및 브라우저의 모든 영구 보관 자료가 공장 초기화되었습니다.");
     }
 </script>
 </body>

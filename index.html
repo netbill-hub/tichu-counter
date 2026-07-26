@@ -127,7 +127,6 @@
         .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
         #sync-indicator { font-size: 0.8rem; text-align: center; color: #6c757d; margin-top: -15px; margin-bottom: 15px; }
 
-        /* 커스텀 모달 레이어 (로그 클릭 스코어보드용) */
         .modal-overlay {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
             background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;
@@ -253,14 +252,14 @@
         </table>
     </div>
 
-    <!-- 4. 역대 누적 통계 대시보드 (오름차순/내림차순 정렬 헤더 연동) -->
+    <!-- 4. 역대 누적 통계 대시보드 -->
     <div class="card" id="capture-total-stats-zone">
         <h2>📊 역대 누적 통계 대시보드</h2>
         <table>
             <thead>
                 <tr>
                     <th>이름</th>
-                    <th class="sortable" onclick="toggleSort('wins')">승수 <span id="sort-icon-wins">▼</span></th>
+                    <th class="sortable" onclick="toggleSort('wins')">승수(전체판수) <span id="sort-icon-wins">▼</span></th>
                     <th class="sortable" onclick="toggleSort('rate')">승률 <span id="sort-icon-rate"></span></th>
                     <th class="sortable" onclick="toggleSort('tp')">티츄 점수 <span id="sort-icon-tp"></span></th>
                 </tr>
@@ -344,7 +343,6 @@
     let globalStats = {};
     let globalLogs = []; 
 
-    // 정렬 상태 관리 변수 (기본값: 승수 내림차순)
     let currentSort = { col: 'wins', dir: 'desc' };
 
     function getCleanBaseUrl() {
@@ -485,7 +483,7 @@
             id: Date.now() + Math.random().toString(36).substr(2, 5),
             date: getFormattedDate(),
             info: infoText,
-            details: detailsSnapshot // 스코어보드 복원용 라운드 세부 스냅샷
+            details: detailsSnapshot
         });
     }
 
@@ -672,7 +670,6 @@
             });
         });
 
-        // 경기 상세 스코어 스냅샷 구성
         const matchDetailsSnapshot = {
             players: JSON.parse(JSON.stringify(p)),
             history: JSON.parse(JSON.stringify(roundList)),
@@ -696,7 +693,6 @@
         buildPastPlayersDatalist();
     }
 
-    // [신규 기능 1] 통계 정렬 상태 전환 핸들러
     function toggleSort(col) {
         if(currentSort.col === col) {
             currentSort.dir = (currentSort.dir === 'desc') ? 'asc' : 'desc';
@@ -707,12 +703,11 @@
         renderStatsTable();
     }
 
-    // [신규 기능 1] 통계 테이블 렌더링 (동적 정렬 로직 적용)
+    // [변경 완료] 승수 표기 시 전체 판수 함께 조합 출력 (예: 5승(13전))
     function renderStatsTable() {
         const tbody = document.getElementById('stats-tbody'); if(!tbody) return;
         tbody.innerHTML = ''; const keys = Object.keys(globalStats);
         
-        // 정렬 상태 아이콘 헤더 업데이트
         ['wins', 'rate', 'tp'].forEach(c => {
             const iconEl = document.getElementById('sort-icon-' + c);
             if(iconEl) {
@@ -733,14 +728,13 @@
             if(obj.wins > maxWin) maxWin = obj.wins; 
             if(winRate > maxRate) maxRate = winRate; 
             if(obj.tichuPoints > maxTp) maxTp = obj.tichuPoints;
-            return { name: obj.name, wins: obj.wins, rate: winRate, tp: obj.tichuPoints };
+            return { name: obj.name, wins: obj.wins, matches: obj.matches, rate: winRate, tp: obj.tichuPoints };
         });
 
-        // 오름차순 / 내림차순 정렬 연산
         processedRows.sort((a, b) => {
             let valA = a[currentSort.col];
             let valB = b[currentSort.col];
-            if(valA === valB) return b.wins - a.wins; // 2차 정렬: 승수 기준
+            if(valA === valB) return b.wins - a.wins;
             return currentSort.dir === 'desc' ? (valB - valA) : (valA - valB);
         });
 
@@ -749,7 +743,9 @@
             const cWin = (row.wins === maxWin && maxWin > 0) ? 'gold-max' : '';
             const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
-            tr.innerHTML = `<td style="font-weight:bold; background:#fafafa;">${row.name}</td><td class="${cWin}">${row.wins}승</td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
+            
+            // 승수 컬럼에 전체 판수 조합
+            tr.innerHTML = `<td style="font-weight:bold; background:#fafafa;">${row.name}</td><td class="${cWin}">${row.wins}승<small style="color:#6c757d; font-weight:normal;">(${row.matches}전)</small></td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
             tbody.appendChild(tr);
         });
     }
@@ -772,12 +768,10 @@
         });
     }
 
-    // [신규 기능 2] 로그 클릭 시 스코어보드 모달 복원 조회 및 예외 처리
     function viewLogDetail(id) {
         const log = globalLogs.find(l => l.id === id);
         if(!log) return;
 
-        // 예외 처리: 경기 결과 스냅샷 데이터가 존재하지 않는 경우
         if(!log.details || !log.details.history || log.details.history.length === 0) {
             alert("⚠️ 데이터가 없습니다.\n(해당 로그는 세부 라운드 스코어 정보가 포함되지 않은 이전 기록이거나 시스템 수정 로그입니다.)");
             return;

@@ -125,7 +125,8 @@
         .admin-mode-active .history-del-btn { display: inline-block; }
 
         .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
-        #sync-indicator { font-size: 0.8rem; text-align: center; color: #6c757d; margin-top: -15px; margin-bottom: 15px; }
+        #sync-indicator { font-size: 0.8rem; text-align: center; color: #6c757d; margin-top: -15px; margin-bottom: 5px; }
+        #wakelock-indicator { font-size: 0.8rem; text-align: center; color: #198754; margin-bottom: 15px; font-weight: bold; }
 
         .modal-overlay {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
@@ -146,6 +147,7 @@
 <div class="container">
     <h1>🃏 티츄 카운팅 & 통계 시스템</h1>
     <div id="sync-indicator">🟢 실시간 클라우드 동기화 모드 작동 중</div>
+    <div id="wakelock-indicator">💡 화면 켜짐 유지 중</div>
 
     <!-- 1. 참여자 설정 -->
     <div class="card">
@@ -342,8 +344,25 @@
     
     let globalStats = {};
     let globalLogs = []; 
-
     let currentSort = { col: 'wins', dir: 'desc' };
+
+    // 💡 화면 꺼짐 방지 (Wake Lock API) 구현
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                document.getElementById('wakelock-indicator').style.display = 'block';
+                document.getElementById('wakelock-indicator').textContent = "💡 화면 켜짐 유지 모드 작동 중";
+            } else {
+                document.getElementById('wakelock-indicator').style.display = 'none';
+            }
+        } catch (err) {
+            console.warn("Wake Lock 적용 불가능:", err);
+            document.getElementById('wakelock-indicator').style.display = 'none';
+        }
+    }
 
     function getCleanBaseUrl() {
         let url = FIREBASE_DB_URL.trim();
@@ -353,6 +372,8 @@
     }
 
     window.onload = function() {
+        requestWakeLock();
+
         ['a1', 'a2', 'b1', 'b2'].forEach(p => {
             const inputEl = document.getElementById('name_' + p);
             if(inputEl) {
@@ -380,6 +401,13 @@
         loadStatsFromCloud();
         loadLogsFromCloud();
     };
+
+    // 화면 백그라운드 전환 후 재진입 시 Wake Lock 다시 요청
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+            await requestWakeLock();
+        }
+    });
 
     function loadStatsFromCloud() {
         const baseUrl = getCleanBaseUrl();
@@ -703,7 +731,6 @@
         renderStatsTable();
     }
 
-    // [변경 완료] 승수 표기 시 전체 판수 함께 조합 출력 (예: 5승(13전))
     function renderStatsTable() {
         const tbody = document.getElementById('stats-tbody'); if(!tbody) return;
         tbody.innerHTML = ''; const keys = Object.keys(globalStats);
@@ -744,7 +771,6 @@
             const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             
-            // 승수 컬럼에 전체 판수 조합
             tr.innerHTML = `<td style="font-weight:bold; background:#fafafa;">${row.name}</td><td class="${cWin}">${row.wins}승<small style="color:#6c757d; font-weight:normal;">(${row.matches}전)</small></td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
             tbody.appendChild(tr);
         });

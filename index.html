@@ -346,7 +346,6 @@
     let globalLogs = []; 
     let currentSort = { col: 'wins', dir: 'desc' };
 
-    // 💡 화면 꺼짐 방지 (Wake Lock API) 구현
     let wakeLock = null;
 
     async function requestWakeLock() {
@@ -402,7 +401,6 @@
         loadLogsFromCloud();
     };
 
-    // 화면 백그라운드 전환 후 재진입 시 Wake Lock 다시 요청
     document.addEventListener('visibilitychange', async () => {
         if (wakeLock !== null && document.visibilityState === 'visible') {
             await requestWakeLock();
@@ -427,44 +425,62 @@
         fetch(`${baseUrl}globalLogs.json`)
         .then(res => res.json())
         .then(data => {
-            if(data) globalLogs = Array.isArray(data) ? data : Object.values(data);
+            if(data) {
+                // Firebase 키-값 객체 구조를 배열로 변환 후 내림차순 정렬
+                const logArray = typeof data === 'object' ? Object.keys(data).map(k => ({ ...data[k], firebaseKey: k })) : data;
+                globalLogs = logArray.sort((a, b) => (b.id || 0) - (a.id || 0));
+            }
             renderLogHistory();
         }).catch(err => console.error("로그 다운로드 오류:", err));
     }
 
-    function saveStatsAndLogsToCloud() {
+    // 💡 [동시성 방지 개선 1] 개별 플레이어 통계 변경분만 PATCH로 부분 업데이트
+    async function updateSinglePlayerStat(playerName, updatedData) {
         const baseUrl = getCleanBaseUrl();
-        if(!baseUrl) {
-            try {
-                localStorage.setItem('tichu_v10_stats', JSON.stringify(globalStats));
-                localStorage.setItem('tichu_v10_logs', JSON.stringify(globalLogs));
-            } catch(e){}
-            return;
+        if (!baseUrl) return;
+        try {
+            // 특수문자 대응 인코딩
+            const encodedName = encodeURIComponent(playerName);
+            await fetch(`${baseUrl}globalStats/${encodedName}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedData)
+            });
+        } catch (err) {
+            console.error(`플레이어 [${playerName}] 스탯 업데이트 실패:`, err);
         }
+    }
+
+    // 💡 [동시성 방지 개선 2] 개별 로그 전송 시 POST (Push)로 독립된 노드 생성
+    async function pushLogToCloud(infoText, detailsSnapshot = null) {
+        const newLogItem = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            date: getFormattedDate(),
+            info: infoText,
+            details: detailsSnapshot
+        };
+
+        // 로컬 UI에 즉시 반영
+        globalLogs.unshift(newLogItem);
+        renderLogHistory();
+
+        const baseUrl = getCleanBaseUrl();
+        if (!baseUrl) return;
 
         document.getElementById('sync-indicator').textContent = "🔄 서버에 실시간 동기화 중...";
-        
-        fetch(`${baseUrl}globalStats.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(globalStats)
-        })
-        .then(res => {
-            if(!res.ok) throw new Error("Stats 업로드 거부됨");
-            return fetch(`${baseUrl}globalLogs.json`, {
-                method: 'PUT',
+        try {
+            const res = await fetch(`${baseUrl}globalLogs.json`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(globalLogs)
+                body: JSON.stringify(newLogItem)
             });
-        })
-        .then(res => {
-            if(!res.ok) throw new Error("Logs 업로드 거부됨");
-            document.getElementById('sync-indicator').textContent = "🟢 실시간 클라우드 동기화 완료";
-        })
-        .catch(err => {
+            if (res.ok) {
+                document.getElementById('sync-indicator').textContent = "🟢 실시간 클라우드 동기화 완료";
+            }
+        } catch (err) {
             document.getElementById('sync-indicator').textContent = "🔴 동기화 실패";
-            console.error(err);
-        });
+            console.error("로그 전송 오류:", err);
+        }
     }
 
     function saveState() {
@@ -504,15 +520,6 @@
         const d = new Date();
         const pad = (n) => n < 10 ? '0' + n : n;
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-
-    function pushLog(infoText, detailsSnapshot = null) {
-        globalLogs.unshift({
-            id: Date.now() + Math.random().toString(36).substr(2, 5),
-            date: getFormattedDate(),
-            info: infoText,
-            details: detailsSnapshot
-        });
     }
 
     function freezeInputs(flag) {
@@ -672,7 +679,8 @@
         document.getElementById('live-board-a').textContent = accA; document.getElementById('live-board-b').textContent = accB;
     }
 
-    function commitMatch() {
+    // 💡 [개선 적용] 경기 종료 시 서버 통계를 최신으로 다시 당겨온 후 원자적 개별 PATCH 수행
+    async function commitMatch() {
         if(appState.matchHistory.length === 0) return;
         let finalA = 0; let finalB = 0;
         appState.matchHistory.forEach(h => { finalA += h.calcA; finalB += h.calcB; });
@@ -680,8 +688,19 @@
 
         const winnerTeam = finalA > finalB ? 'A' : 'B';
         const p = appState.players; const roundList = appState.matchHistory;
-
         const sessionPlayers = [p.a1, p.a2, p.b1, p.b2];
+
+        // 1. 서버의 가장 최신 통계를 한 번 불러와서 동시성 충돌 범위 축소
+        const baseUrl = getCleanBaseUrl();
+        if (baseUrl) {
+            try {
+                const res = await fetch(`${baseUrl}globalStats.json`);
+                const latestData = await res.json();
+                if (latestData) globalStats = latestData;
+            } catch(e) {}
+        }
+
+        // 2. 스탯 계산
         sessionPlayers.forEach(name => {
             if(!globalStats[name]) globalStats[name] = { name, wins: 0, matches: 0, tichuPoints: 0 };
             globalStats[name].matches += 1;
@@ -698,6 +717,12 @@
             });
         });
 
+        // 3. 각 참여 플레이어별 개별 PATCH 수행 (다른 플레이어 스탯을 덮어쓰지 않음)
+        for (const name of sessionPlayers) {
+            await updateSinglePlayerStat(name, globalStats[name]);
+        }
+
+        // 4. 독립 로그 POST 생성
         const matchDetailsSnapshot = {
             players: JSON.parse(JSON.stringify(p)),
             history: JSON.parse(JSON.stringify(roundList)),
@@ -705,8 +730,7 @@
             finalB: finalB,
             winnerTeam: winnerTeam
         };
-
-        pushLog(`[플레이 결과] ${p.a1}, ${p.a2} VS ${p.b1}, ${p.b2} (승리: ${winnerTeam}팀)`, matchDetailsSnapshot);
+        await pushLogToCloud(`[플레이 결과] ${p.a1}, ${p.a2} VS ${p.b1}, ${p.b2} (승리: ${winnerTeam}팀)`, matchDetailsSnapshot);
 
         appState.roundNum = 1; appState.matchHistory = []; appState.isLocked = false;
         freezeInputs(false);
@@ -715,9 +739,7 @@
         document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
 
         saveState();
-        saveStatsAndLogsToCloud(); 
         renderStatsTable();
-        renderLogHistory();
         buildPastPlayersDatalist();
     }
 
@@ -788,14 +810,14 @@
                     <span class="history-date">${log.date}</span>
                     <span class="history-info">${log.info}</span>
                 </div>
-                <button class="history-del-btn" onclick="deleteLogItem('${log.id}')" title="이 기록 삭제">🗑️</button>
+                <button class="history-del-btn" onclick="deleteLogItem('${log.id}', '${log.firebaseKey || ''}')" title="이 기록 삭제">🗑️</button>
             `;
             container.appendChild(div);
         });
     }
 
     function viewLogDetail(id) {
-        const log = globalLogs.find(l => l.id === id);
+        const log = globalLogs.find(l => String(l.id) === String(id));
         if(!log) return;
 
         if(!log.details || !log.details.history || log.details.history.length === 0) {
@@ -834,7 +856,7 @@
         document.getElementById('score-modal').style.display = 'none';
     }
 
-    function deleteLogItem(id) {
+    async function deleteLogItem(id, firebaseKey) {
         const password = prompt("🔒 이 이력을 로그에서 영구 삭제하시겠습니까?\n승인을 위해 관리자 비밀번호를 입력하세요:");
         if (password === null) return; 
         if (password !== 'tichu') {
@@ -842,9 +864,15 @@
             return;
         }
 
-        globalLogs = globalLogs.filter(l => l.id !== id);
-        saveStatsAndLogsToCloud();
+        globalLogs = globalLogs.filter(l => String(l.id) !== String(id));
         renderLogHistory();
+
+        const baseUrl = getCleanBaseUrl();
+        if (baseUrl && firebaseKey) {
+            try {
+                await fetch(`${baseUrl}globalLogs/${firebaseKey}.json`, { method: 'DELETE' });
+            } catch(e) {}
+        }
         alert("🗑️ 해당 로그 항목이 삭제되었습니다.");
     }
 
@@ -873,7 +901,7 @@
 
     function deleteAdminRow(btn) { if(confirm("해당 유저를 편집 풀에서 제외할까요?")) { btn.closest('tr').remove(); } }
 
-    function saveAdminChanges() {
+    async function saveAdminChanges() {
         if(!confirm("통계를 동기화하시겠습니까?")) return;
         const tbody = document.getElementById('admin-tbody'); const rows = tbody.querySelectorAll('tr'); let newGlobalStats = {};
         for(let i=0; i<rows.length; i++) {
@@ -881,14 +909,24 @@
             if(!name) { alert("빈 필드가 있습니다."); return; } if(wins > matches) { alert("승리 판수가 총 판수보다 큽니다."); return; }
             newGlobalStats[name] = { name, wins, matches, tichuPoints };
         }
-        globalStats = newGlobalStats; pushLog(`[관리자 수정] 외부 데이터 연동 통합 편집 수정`);
+        globalStats = newGlobalStats; 
+
+        // 전체 교체 저장
+        const baseUrl = getCleanBaseUrl();
+        if (baseUrl) {
+            await fetch(`${baseUrl}globalStats.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(globalStats)
+            });
+        }
+        await pushLogToCloud(`[관리자 수정] 외부 데이터 연동 통합 편집 수정`);
         
-        saveStatsAndLogsToCloud(); 
         renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
     }
 
-    function resetAllData() {
+    async function resetAllData() {
         const password = prompt("🚨 데이터베이스 전체 포맷 권한이 감지되었습니다.\n승인을 위해 관리자 비밀번호를 입력해 주세요:");
         if (password === null) return;
         if (password !== 'tichu') { alert("🔒 암호가 일치하지 않습니다. 데이터 보안 검증에 실패했습니다."); return; }
@@ -902,7 +940,11 @@
         document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
         
         saveState();
-        saveStatsAndLogsToCloud(); 
+        const baseUrl = getCleanBaseUrl();
+        if (baseUrl) {
+            await fetch(`${baseUrl}globalStats.json`, { method: 'DELETE' });
+            await fetch(`${baseUrl}globalLogs.json`, { method: 'DELETE' });
+        }
         resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
         alert("💥 모든 자료가 공장 초기화되었습니다.");
     }

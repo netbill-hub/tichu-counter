@@ -419,31 +419,37 @@
         }).catch(err => console.error("통계 다운로드 오류:", err));
     }
 
-    // 💡 [이슈 해결] Firebase 로그 데이터 구조(객체 또는 배열) 완벽 대응 파서
+    // 🛠️ [원인 완벽 조치] Firebase의 Array 및 Object 구조 통합 파서
     function loadLogsFromCloud() {
         const baseUrl = getCleanBaseUrl();
         if(!baseUrl) return;
+        
         fetch(`${baseUrl}globalLogs.json`)
         .then(res => res.json())
         .then(data => {
-            if(data) {
+            let parsedLogs = [];
+            if (data) {
                 if (Array.isArray(data)) {
-                    globalLogs = data.filter(item => item !== null);
+                    // 과거 배열 구조 대응
+                    parsedLogs = data.filter(item => item !== null && typeof item === 'object');
                 } else if (typeof data === 'object') {
-                    globalLogs = Object.keys(data).map(k => ({
-                        ...data[k],
-                        firebaseKey: k
-                    }));
+                    // 신규 POST 고유 키(Push Key) 구조 대응
+                    parsedLogs = Object.keys(data).map(key => {
+                        const val = data[key];
+                        if (val && typeof val === 'object') {
+                            return { ...val, firebaseKey: key };
+                        }
+                        return null;
+                    }).filter(item => item !== null);
                 }
-                // 최신순 정렬
-                globalLogs.sort((a, b) => (b.id || 0) - (a.id || 0));
-            } else {
-                globalLogs = [];
+                // 최신순 정렬 (ID 내림차순)
+                parsedLogs.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
             }
+            globalLogs = parsedLogs;
             renderLogHistory();
-        }).catch(err => {
+        })
+        .catch(err => {
             console.error("로그 다운로드 오류:", err);
-            globalLogs = [];
             renderLogHistory();
         });
     }
@@ -463,6 +469,7 @@
         }
     }
 
+    // 🛠️ [원인 완벽 조치] POST 전송 후 생성된 firebaseKey를 실시간 수신 매핑
     async function pushLogToCloud(infoText, detailsSnapshot = null) {
         const newLogItem = {
             id: Date.now() + Math.floor(Math.random() * 1000),
@@ -471,11 +478,12 @@
             details: detailsSnapshot
         };
 
-        globalLogs.unshift(newLogItem);
-        renderLogHistory();
-
         const baseUrl = getCleanBaseUrl();
-        if (!baseUrl) return;
+        if (!baseUrl) {
+            globalLogs.unshift(newLogItem);
+            renderLogHistory();
+            return;
+        }
 
         document.getElementById('sync-indicator').textContent = "🔄 서버에 실시간 동기화 중...";
         try {
@@ -485,14 +493,19 @@
                 body: JSON.stringify(newLogItem)
             });
             if (res.ok) {
+                const resData = await res.json();
+                if (resData && resData.name) {
+                    newLogItem.firebaseKey = resData.name;
+                }
                 document.getElementById('sync-indicator').textContent = "🟢 실시간 클라우드 동기화 완료";
-                // 서버 키 연동을 위해 데이터 재로드
-                loadLogsFromCloud();
             }
         } catch (err) {
             document.getElementById('sync-indicator').textContent = "🔴 동기화 실패";
             console.error("로그 전송 오류:", err);
         }
+
+        globalLogs.unshift(newLogItem);
+        renderLogHistory();
     }
 
     function saveState() {
@@ -805,9 +818,12 @@
         });
     }
 
+    // 🛠️ [원인 완벽 조치] 안전한 로그 아카이브 HTML 렌더링
     function renderLogHistory() {
-        const container = document.getElementById('history-log-container'); if(!container) return;
+        const container = document.getElementById('history-log-container'); 
+        if(!container) return;
         container.innerHTML = '';
+        
         if(!globalLogs || globalLogs.length === 0) { 
             container.innerHTML = `<div style="text-align:center; color:#999; padding:20px;">이력이 존재하지 않습니다.</div>`; 
             return; 
@@ -815,13 +831,18 @@
         
         globalLogs.forEach(log => {
             if (!log) return;
-            const div = document.createElement('div'); div.className = 'history-item';
+            const div = document.createElement('div'); 
+            div.className = 'history-item';
+            
+            const logIdStr = String(log.id || '');
+            const fbKeyStr = String(log.firebaseKey || '');
+            
             div.innerHTML = `
-                <div class="history-clickable-zone" onclick="viewLogDetail('${log.id}')" title="상세 스코어보드 보기">
+                <div class="history-clickable-zone" onclick="viewLogDetail('${logIdStr}')" title="상세 스코어보드 보기">
                     <span class="history-date">${log.date || ''}</span>
                     <span class="history-info">${log.info || ''}</span>
                 </div>
-                <button class="history-del-btn" onclick="deleteLogItem('${log.id}', '${log.firebaseKey || ''}')" title="이 기록 삭제">🗑️</button>
+                <button class="history-del-btn" onclick="deleteLogItem('${logIdStr}', '${fbKeyStr}')" title="이 기록 삭제">🗑️</button>
             `;
             container.appendChild(div);
         });
@@ -879,7 +900,7 @@
         renderLogHistory();
 
         const baseUrl = getCleanBaseUrl();
-        if (baseUrl && firebaseKey) {
+        if (baseUrl && firebaseKey && firebaseKey !== 'undefined') {
             try {
                 await fetch(`${baseUrl}globalLogs/${firebaseKey}.json`, { method: 'DELETE' });
             } catch(e) {}

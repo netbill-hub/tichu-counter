@@ -126,7 +126,7 @@
 
         .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
         #sync-indicator { font-size: 0.8rem; text-align: center; color: #6c757d; margin-top: -15px; margin-bottom: 5px; }
-        #wakelock-indicator { font-size: 0.8rem; text-align: center; color: #198754; margin-bottom: 15px; font-weight: bold; }
+        #wakelock-indicator { font-size: 0.8rem; text-align: center; margin-bottom: 15px; font-weight: bold; cursor: pointer; }
 
         .modal-overlay {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
@@ -147,7 +147,7 @@
 <div class="container">
     <h1>🃏 티츄 카운팅 & 통계 시스템</h1>
     <div id="sync-indicator">🟢 실시간 클라우드 동기화 모드 작동 중</div>
-    <div id="wakelock-indicator">💡 화면 켜짐 유지 중</div>
+    <div id="wakelock-indicator" onclick="requestWakeLock()">💡 화면 켜짐 유지 모드 준비 중</div>
 
     <!-- 1. 참여자 설정 -->
     <div class="card">
@@ -346,20 +346,33 @@
     let globalLogs = []; 
     let currentSort = { col: 'wins', dir: 'desc' };
 
-    let wakeLock = null;
+    // 💡 모바일 지원 강화된 Wake Lock API 관리 객체
+    let wakeLockObj = null;
 
     async function requestWakeLock() {
+        const indicator = document.getElementById('wakelock-indicator');
+        if (!('wakeLock' in navigator)) {
+            indicator.style.color = "#dc3545";
+            indicator.textContent = "⚠️ 이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.";
+            return;
+        }
+
         try {
-            if ('wakeLock' in navigator) {
-                wakeLock = await navigator.wakeLock.request('screen');
-                document.getElementById('wakelock-indicator').style.display = 'block';
-                document.getElementById('wakelock-indicator').textContent = "💡 화면 켜짐 유지 모드 작동 중";
-            } else {
-                document.getElementById('wakelock-indicator').style.display = 'none';
-            }
+            if (wakeLockObj !== null) return; // 이미 활성화됨
+            wakeLockObj = await navigator.wakeLock.request('screen');
+            indicator.style.color = "#198754";
+            indicator.textContent = "🟢 💡 화면 켜짐 유지 활성화됨";
+
+            // 브라우저가 권한을 자동 해제한 경우 수신
+            wakeLockObj.addEventListener('release', () => {
+                wakeLockObj = null;
+                indicator.style.color = "#fd7e14";
+                indicator.textContent = "🟡 💡 화면을 한 번 터치하면 켜짐 유지가 다시 활성화됩니다.";
+            });
         } catch (err) {
-            console.warn("Wake Lock 적용 불가능:", err);
-            document.getElementById('wakelock-indicator').style.display = 'none';
+            wakeLockObj = null;
+            indicator.style.color = "#fd7e14";
+            indicator.textContent = "🟡 💡 화면을 한 번 터치하면 켜짐 유지가 활성화됩니다.";
         }
     }
 
@@ -371,7 +384,13 @@
     }
 
     window.onload = function() {
+        // 최초 로드 시 시도
         requestWakeLock();
+
+        // 💡 [핵심] 모바일 브라우저의 터치 제약을 해제하기 위해 유저 첫 터치/클릭 시 Wake Lock 할당
+        document.body.addEventListener('click', () => {
+            if (!wakeLockObj) requestWakeLock();
+        }, { once: false });
 
         ['a1', 'a2', 'b1', 'b2'].forEach(p => {
             const inputEl = document.getElementById('name_' + p);
@@ -401,8 +420,9 @@
         loadLogsFromCloud();
     };
 
+    // 💡 백그라운드 전환 후 재진입 시 복구
     document.addEventListener('visibilitychange', async () => {
-        if (wakeLock !== null && document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible') {
             await requestWakeLock();
         }
     });
@@ -419,7 +439,6 @@
         }).catch(err => console.error("통계 다운로드 오류:", err));
     }
 
-    // 🛠️ [원인 완벽 조치] Firebase의 Array 및 Object 구조 통합 파서
     function loadLogsFromCloud() {
         const baseUrl = getCleanBaseUrl();
         if(!baseUrl) return;
@@ -430,10 +449,8 @@
             let parsedLogs = [];
             if (data) {
                 if (Array.isArray(data)) {
-                    // 과거 배열 구조 대응
                     parsedLogs = data.filter(item => item !== null && typeof item === 'object');
                 } else if (typeof data === 'object') {
-                    // 신규 POST 고유 키(Push Key) 구조 대응
                     parsedLogs = Object.keys(data).map(key => {
                         const val = data[key];
                         if (val && typeof val === 'object') {
@@ -442,7 +459,6 @@
                         return null;
                     }).filter(item => item !== null);
                 }
-                // 최신순 정렬 (ID 내림차순)
                 parsedLogs.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
             }
             globalLogs = parsedLogs;
@@ -469,7 +485,6 @@
         }
     }
 
-    // 🛠️ [원인 완벽 조치] POST 전송 후 생성된 firebaseKey를 실시간 수신 매핑
     async function pushLogToCloud(infoText, detailsSnapshot = null) {
         const newLogItem = {
             id: Date.now() + Math.floor(Math.random() * 1000),
@@ -553,6 +568,7 @@
     }
 
     function lockPlayers() {
+        requestWakeLock(); // 클릭 시 화면 켜짐 유지 강제 보장
         const names = {
             a1: document.getElementById('name_a1').value.trim(),
             a2: document.getElementById('name_a2').value.trim(),
@@ -818,7 +834,6 @@
         });
     }
 
-    // 🛠️ [원인 완벽 조치] 안전한 로그 아카이브 HTML 렌더링
     function renderLogHistory() {
         const container = document.getElementById('history-log-container'); 
         if(!container) return;

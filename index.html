@@ -3,106 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>티츄 카운터 & 마스터 대시보드 (네온 서킷 다크)</title>
+    <title>티츄 카운터 & 마스터 대시보드 (Apple Minimal)</title>
     <!-- 스크린샷 캡처 및 Firebase 연동 라이브러리 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
-            --bg-color: #0d0f12;
-            --card-bg: #161b22;
-            --card-border: rgba(255, 255, 255, 0.12);
-            --team-a-color: #00f0ff;
-            --team-a-glow: rgba(0, 240, 255, 0.3);
-            --team-b-color: #ff0055;
-            --team-b-glow: rgba(255, 0, 85, 0.3);
-            --success-color: #00ff9d;
-            --text-color: #f0f6fc;
-            --text-sub: #8b949e;
-            --admin-color: #b366ff;
-            --screenshot-color: #38d9a9;
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --card-border: rgba(0, 0, 0, 0.08);
+            --team-a-color: #0071e3;
+            --team-b-color: #ff3b30;
+            --success-color: #34c759;
+            --text-color: #1d1d1f;
+            --text-sub: #86868b;
+            --admin-color: #af52de;
+            --screenshot-color: #30b0c7;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 50% 0%, #1a1f2c 0%, #0d0f12 75%);
             color: var(--text-color);
             margin: 0;
-            padding: 15px;
+            padding: 20px 15px;
             font-size: 14px;
-            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
         .container { max-width: 800px; margin: 0 auto; }
-        h1, h2 { 
+        h1 { 
             text-align: center; 
-            margin-bottom: 20px; 
-            color: #ffffff; 
-            text-shadow: 0 0 10px rgba(255,255,255,0.2);
-            font-weight: 800;
+            margin-bottom: 6px; 
+            color: var(--text-color); 
+            font-weight: 700;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+        }
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 18px;
+            color: var(--text-color);
+            font-weight: 600;
+            font-size: 1.3rem;
+            letter-spacing: -0.3px;
         }
         .card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 20px;
+            border-radius: 18px;
+            padding: 22px;
             margin-bottom: 20px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
         }
         .flex-group { display: flex; gap: 15px; }
         .flex-child { flex: 1; min-width: 0; }
         .team-header {
-            font-size: 1.2rem;
-            font-weight: 800;
+            font-size: 1.1rem;
+            font-weight: 700;
             text-align: center;
-            padding-bottom: 8px;
+            padding-bottom: 10px;
             margin-bottom: 15px;
-            border-bottom: 2px solid var(--card-border);
-            letter-spacing: 1px;
+            border-bottom: 2px solid #f2f2f7;
         }
-        .team-a-head { 
-            border-color: var(--team-a-color); 
-            color: var(--team-a-color); 
-            text-shadow: 0 0 8px var(--team-a-glow);
-        }
-        .team-b-head { 
-            border-color: var(--team-b-color); 
-            color: var(--team-b-color); 
-            text-shadow: 0 0 8px var(--team-b-glow);
-        }
+        .team-a-head { color: var(--team-a-color); }
+        .team-b-head { color: var(--team-b-color); }
         
         .live-match-scoreboard {
             display: flex;
-            background: #05070a;
-            border: 1px solid rgba(255,255,255,0.15);
-            color: white;
+            background: #f2f2f7;
             border-radius: 14px;
-            padding: 18px 0;
+            padding: 16px 0;
             margin-bottom: 20px;
             text-align: center;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
         }
         .live-team-box { flex: 1; }
         .live-score-val { 
-            font-size: 2.8rem; 
-            font-weight: 900; 
-            font-family: 'Courier New', monospace; 
+            font-size: 2.6rem; 
+            font-weight: 800; 
+            font-family: -apple-system, BlinkMacSystemFont, monospace; 
             line-height: 1; 
             margin-top: 6px; 
         }
-        .live-team-box.team-a .live-score-val { 
-            color: var(--team-a-color); 
-            text-shadow: 0 0 12px var(--team-a-glow);
-        }
-        .live-team-box.team-b .live-score-val { 
-            color: var(--team-b-color); 
-            text-shadow: 0 0 12px var(--team-b-glow);
-        }
+        .live-team-box.team-a .live-score-val { color: var(--team-a-color); }
+        .live-team-box.team-b .live-score-val { color: var(--team-b-color); }
         .live-vs-divider { 
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            color: #484f58; 
-            font-weight: 900; 
-            font-size: 1.2rem; 
+            color: var(--text-sub); 
+            font-weight: 700; 
+            font-size: 1.1rem; 
         }
 
         .score-controller {
@@ -113,138 +102,123 @@
             margin-bottom: 15px;
         }
         .score-btn {
-            width: 46px;
-            height: 46px;
-            font-size: 1.6rem;
-            font-weight: bold;
-            border: 1px solid rgba(255,255,255,0.2);
+            width: 44px;
+            height: 44px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            border: none;
             border-radius: 50%;
             cursor: pointer;
-            background: #21262d;
-            color: #ffffff;
-            transition: all 0.2s;
+            background: #e5e5ea;
+            color: var(--text-color);
+            transition: all 0.2s ease;
         }
-        .score-btn:hover { 
-            background: #30363d; 
-            border-color: #8b949e; 
-        }
+        .score-btn:active { background: #d1d1d6; transform: scale(0.95); }
         .score-display { 
             font-size: 2rem; 
-            font-weight: 800; 
+            font-weight: 700; 
             min-width: 70px; 
             text-align: center; 
             font-family: monospace;
-            color: #ffffff;
+            color: var(--text-color);
         }
 
         button.btn {
-            padding: 10px 16px; 
+            padding: 12px 18px; 
             border: none; 
-            border-radius: 8px; 
-            font-weight: bold; 
+            border-radius: 12px; 
+            font-weight: 600; 
+            font-size: 0.95rem;
             cursor: pointer; 
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
-        .btn-blue { 
-            background: var(--team-a-color); 
-            color: #000; 
-            box-shadow: 0 0 10px var(--team-a-glow);
-        }
-        .btn-red { 
-            background: var(--team-b-color); 
-            color: #fff; 
-            box-shadow: 0 0 10px var(--team-b-glow);
-        }
-        .btn-green { 
-            background: var(--success-color); 
-            color: #000; 
-            box-shadow: 0 0 10px rgba(0, 255, 157, 0.3);
-        }
-        .btn-gray { background: #30363d; color: #c9d1d9; border: 1px solid var(--card-border); }
+        button.btn:active { transform: scale(0.98); }
+        .btn-blue { background: var(--team-a-color); color: #fff; }
+        .btn-red { background: var(--team-b-color); color: #fff; }
+        .btn-green { background: var(--success-color); color: #fff; }
+        .btn-gray { background: #e5e5ea; color: var(--text-color); }
         .btn-purple { background: var(--admin-color); color: #fff; }
-        .btn-info { background: #21262d; color: var(--screenshot-color); border: 1px solid var(--screenshot-color); }
+        .btn-info { background: #e5e5ea; color: #0071e3; }
         
         .option-group { display: flex; gap: 6px; margin-bottom: 12px; }
         .opt-btn {
-            flex: 1; padding: 8px 4px; 
-            border: 1px solid var(--card-border); 
-            background: #161b22;
+            flex: 1; padding: 9px 4px; 
+            border: 1px solid #e5e5ea; 
+            background: #ffffff;
             color: var(--text-sub);
-            border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-weight: bold;
-            transition: all 0.2s;
+            border-radius: 10px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
+            transition: all 0.2s ease;
         }
         .opt-btn.active-win { 
             background: var(--success-color); 
-            color: #000; 
+            color: #ffffff; 
             border-color: var(--success-color); 
-            box-shadow: 0 0 8px rgba(0, 255, 157, 0.4);
         }
         .opt-btn.active-fail { 
             background: var(--team-b-color); 
             color: #ffffff; 
             border-color: var(--team-b-color); 
-            box-shadow: 0 0 8px var(--team-b-glow);
         }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; background: #0d1117; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; background: #ffffff; border-radius: 12px; overflow: hidden; }
         th, td { 
-            border: 1px solid var(--card-border); 
+            border: 1px solid #e5e5ea; 
             padding: 10px 6px; 
             text-align: center; 
         }
         th { 
-            background-color: #161b22; 
-            color: #c9d1d9;
-            font-weight: bold; 
+            background-color: #f2f2f7; 
+            color: var(--text-color);
+            font-weight: 600; 
             white-space: nowrap; 
             word-break: keep-all;
         }
         th.sortable { cursor: pointer; user-select: none; }
-        th.sortable:hover { background-color: #21262d; }
+        th.sortable:hover { background-color: #e5e5ea; }
         
         td:first-child { white-space: nowrap; }
 
         .gold-max { 
-            color: #ffd700 !important; 
-            font-weight: 900 !important; 
-            background-color: rgba(255, 215, 0, 0.1); 
-            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+            color: #d97706 !important; 
+            font-weight: 800 !important; 
+            background-color: #fef3c7; 
         }
         .input-text { 
             width: 100%; padding: 10px; box-sizing: border-box; 
-            background: #0d1117; color: #fff;
-            border: 1px solid var(--card-border); border-radius: 8px; 
+            background: #f2f2f7; color: var(--text-color);
+            border: 1px solid transparent; border-radius: 10px; 
+            font-size: 0.95rem;
         }
-        .input-text:focus { outline: none; border-color: var(--team-a-color); }
-        label { font-weight: bold; display: block; margin: 8px 0 4px 0; color: var(--text-sub); }
+        .input-text:focus { outline: none; background: #fff; border-color: var(--team-a-color); }
+        label { font-weight: 600; display: block; margin: 8px 0 4px 0; color: var(--text-sub); font-size: 0.85rem; }
         
-        .admin-section { background-color: #120e1f; border: 1px dashed var(--admin-color); border-radius: 12px; padding: 15px; margin-top: 20px; }
-        .admin-table input { width: 80px; padding: 4px; text-align: center; border-radius: 4px; border: 1px solid #444; background: #000; color: #fff; }
+        .admin-section { background-color: #f3e8ff; border: 1px dashed var(--admin-color); border-radius: 14px; padding: 15px; margin-top: 20px; }
+        .admin-table input { width: 80px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #d1d1d6; background: #fff; }
         
         .history-item { 
             display: flex; justify-content: space-between; align-items: center; 
-            padding: 12px; border-bottom: 1px solid var(--card-border); font-size: 0.9rem; 
+            padding: 12px; border-bottom: 1px solid #e5e5ea; font-size: 0.9rem; 
         }
         .history-clickable-zone { flex: 1; display: flex; align-items: center; cursor: pointer; }
-        .history-clickable-zone:hover .history-info { text-decoration: underline; color: #fff; }
+        .history-clickable-zone:hover .history-info { text-decoration: underline; color: #000; }
         .history-date { color: var(--text-sub); font-family: monospace; font-size: 0.85rem; min-width: 130px; }
-        .history-info { margin-left: 15px; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px; }
+        .history-info { margin-left: 15px; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px; }
         .history-del-btn { display: none; background: none; border: none; color: var(--team-b-color); cursor: pointer; font-size: 1rem; padding: 0 5px; }
         .admin-mode-active .history-del-btn { display: inline-block; }
 
-        .btn-shot-group { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
-        #sync-indicator { font-size: 0.8rem; text-align: center; color: var(--text-sub); margin-top: -15px; margin-bottom: 5px; }
-        #wakelock-indicator { font-size: 0.8rem; text-align: center; margin-bottom: 15px; font-weight: bold; cursor: pointer; }
+        .btn-shot-group { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+        #sync-indicator { font-size: 0.8rem; text-align: center; color: var(--text-sub); margin-top: -10px; margin-bottom: 8px; }
+        #wakelock-indicator { font-size: 0.8rem; text-align: center; margin-bottom: 15px; font-weight: 600; cursor: pointer; }
 
         .modal-overlay {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;
         }
         .modal-content {
-            background: #161b22; border: 1px solid var(--card-border); border-radius: 16px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); position: relative; color: #fff;
+            background: #ffffff; border-radius: 20px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 22px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); position: relative; color: var(--text-color);
         }
         .modal-close-btn {
-            position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; font-weight: bold; cursor: pointer; color: var(--text-sub);
+            position: absolute; top: 18px; right: 18px; background: none; border: none; font-size: 1.5rem; font-weight: bold; cursor: pointer; color: var(--text-sub);
         }
     </style>
 </head>
@@ -253,7 +227,7 @@
 <datalist id="past-players-pool"></datalist>
 
 <div class="container">
-    <h1>🃏 티츄 카운팅 & 통계 시스템</h1>
+    <h1>티츄 카운팅 & 통계 시스템</h1>
     <div id="sync-indicator">🟢 실시간 클라우드 동기화 모드 작동 중</div>
     <div id="wakelock-indicator" onclick="requestWakeLock()">💡 화면 켜짐 유지 모드 준비 중 (터치 시 활성화)</div>
 
@@ -272,7 +246,7 @@
                 <label>플레이어 2</label><input type="text" id="name_b2" class="input-text" value="B선수2" list="past-players-pool" autocomplete="off">
             </div>
         </div>
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;">
             <button class="btn btn-blue" id="lock-btn" onclick="lockPlayers()">게임 매치 시작</button>
         </div>
     </div>
@@ -283,17 +257,17 @@
         <div id="capture-live-game-zone">
             <div class="live-match-scoreboard">
                 <div class="live-team-box team-a">
-                    <div style="font-size:0.85rem; font-weight:bold; color:var(--text-sub);">A 팀 누적</div>
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-sub);">A 팀 누적</div>
                     <div class="live-score-val" id="live-board-a">0</div>
                 </div>
                 <div class="live-vs-divider">VS</div>
                 <div class="live-team-box team-b">
-                    <div style="font-size:0.85rem; font-weight:bold; color:var(--text-sub);">B 팀 누적</div>
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-sub);">B 팀 누적</div>
                     <div class="live-score-val" id="live-board-b">0</div>
                 </div>
             </div>
             
-            <label style="text-align:center; font-size:1rem; margin-bottom:8px;">🏆 원투(1등, 2등 독점) 여부</label>
+            <label style="text-align:center; font-size:0.95rem; margin-bottom:8px;">🏆 원투(1등, 2등 독점) 여부</label>
             <div class="option-group" style="max-width: 400px; margin: 0 auto 20px auto;">
                 <button class="opt-btn" id="ot_none" onclick="changeOneTwo('none')">없음 (일반 계산)</button>
                 <button class="opt-btn" id="ot_A" onclick="changeOneTwo('A')">A팀 원투 (+200)</button>
@@ -301,27 +275,27 @@
             </div>
 
             <div class="flex-group">
-                <div class="flex-child" style="background:#0d1117; padding:12px; border-radius:10px; border:1px solid var(--card-border);">
-                    <div class="team-header team-a-head" style="font-size:1rem; margin-bottom:10px;">A팀 카드 점수</div>
+                <div class="flex-child" style="background:#f2f2f7; padding:14px; border-radius:12px;">
+                    <div class="team-header team-a-head" style="font-size:0.95rem; margin-bottom:10px;">A팀 카드 점수</div>
                     <div class="score-controller">
                         <button class="score-btn" id="minus_a" onclick="adjustScore('A', -5)">-</button>
                         <div class="score-display" id="disp_a">50</div>
                         <button class="score-btn" id="plus_a" onclick="adjustScore('A', 5)">+</button>
                     </div>
-                    <div style="margin-top:15px; border-top:1px solid var(--card-border); padding-top:10px;" id="tichu_ui_container_a">
+                    <div style="margin-top:15px; border-top:1px solid #e5e5ea; padding-top:10px;" id="tichu_ui_container_a">
                         <div id="tichu_ui_a1"></div>
                         <div id="tichu_ui_a2" style="margin-top:10px;"></div>
                     </div>
                 </div>
 
-                <div class="flex-child" style="background:#0d1117; padding:12px; border-radius:10px; border:1px solid var(--card-border);">
-                    <div class="team-header team-b-head" style="font-size:1rem; margin-bottom:10px;">B팀 카드 점수</div>
+                <div class="flex-child" style="background:#f2f2f7; padding:14px; border-radius:12px;">
+                    <div class="team-header team-b-head" style="font-size:0.95rem; margin-bottom:10px;">B팀 카드 점수</div>
                     <div class="score-controller">
                         <button class="score-btn" id="minus_b" onclick="adjustScore('B', -5)">-</button>
                         <div class="score-display" id="disp_b">50</div>
                         <button class="score-btn" id="plus_b" onclick="adjustScore('B', 5)">+</button>
                     </div>
-                    <div style="margin-top:15px; border-top:1px solid var(--card-border); padding-top:10px;" id="tichu_ui_container_b">
+                    <div style="margin-top:15px; border-top:1px solid #e5e5ea; padding-top:10px;" id="tichu_ui_container_b">
                         <div id="tichu_ui_b1"></div>
                         <div id="tichu_ui_b2" style="margin-top:10px;"></div>
                     </div>
@@ -329,7 +303,7 @@
             </div>
         </div>
 
-        <button class="btn btn-green" style="width:100%; margin-top:20px; font-size:1.1rem; padding:12px;" onclick="addRoundRow()">라운드 결과 기록</button>
+        <button class="btn btn-green" style="width:100%; margin-top:20px; font-size:1.05rem; padding:12px;" onclick="addRoundRow()">라운드 결과 기록</button>
         
         <div class="btn-shot-group">
             <button class="btn btn-red" onclick="cancelCurrentMatch()">❌ 게임 매치 취소</button>
@@ -352,11 +326,11 @@
             </thead>
             <tbody id="board-tbody"></tbody>
             <tfoot>
-                <tr style="font-weight:bold; background:#161b22;">
+                <tr style="font-weight:bold; background:#f2f2f7;">
                     <td>합계</td>
                     <td id="sum_a" style="color:var(--team-a-color); font-size:1.1rem;">0</td>
                     <td id="sum_b" style="color:var(--team-b-color); font-size:1.1rem;">0</td>
-                    <td colspan="2"><button class="btn btn-blue" style="padding:6px 10px; width:100%;" onclick="commitMatch()">경기 완료 및 데이터 전송</button></td>
+                    <td colspan="2"><button class="btn btn-blue" style="padding:6px 10px; width:100%; font-size:0.85rem;" onclick="commitMatch()">경기 완료 및 데이터 전송</button></td>
                 </tr>
             </tfoot>
         </table>
@@ -407,7 +381,7 @@
     <!-- 5. 글로벌 로그 히스토리 아카이브 -->
     <div class="card" id="history-panel-section">
         <h2>📜 데이터 변경 로그 히스토리</h2>
-        <div id="history-log-container" style="max-height: 300px; overflow-y: auto; background: #0d1117; border: 1px solid var(--card-border); border-radius: 8px; padding: 5px;"></div>
+        <div id="history-log-container" style="max-height: 300px; overflow-y: auto; background: #ffffff; border: 1px solid #e5e5ea; border-radius: 12px; padding: 5px;"></div>
     </div>
 </div>
 
@@ -428,7 +402,7 @@
             </thead>
             <tbody id="modal-board-tbody"></tbody>
             <tfoot>
-                <tr style="font-weight:bold; background:#21262d;">
+                <tr style="font-weight:bold; background:#f2f2f7;">
                     <td>최종 합계</td>
                     <td id="modal-sum-a" style="color:var(--team-a-color); font-size:1.1rem;">0</td>
                     <td id="modal-sum-b" style="color:var(--team-b-color); font-size:1.1rem;">0</td>
@@ -456,13 +430,12 @@
 
     let wakeLockObj = null;
 
-    // 💡 안전하게 리팩토링된 Wake Lock 요청 함수 (에러 인터셉트 방식)
     async function requestWakeLock() {
         const indicator = document.getElementById('wakelock-indicator');
         if (!indicator) return;
         
         if (!('wakeLock' in navigator)) {
-            indicator.style.color = "#ff0055";
+            indicator.style.color = "#ff3b30";
             indicator.textContent = "⚠️ 이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.";
             return;
         }
@@ -470,17 +443,17 @@
         try {
             if (wakeLockObj !== null) return;
             wakeLockObj = await navigator.wakeLock.request('screen');
-            indicator.style.color = "#00ff9d";
+            indicator.style.color = "#34c759";
             indicator.textContent = "🟢 💡 화면 켜짐 유지 활성화됨";
 
             wakeLockObj.addEventListener('release', () => {
                 wakeLockObj = null;
-                indicator.style.color = "#ffaa00";
+                indicator.style.color = "#ff9500";
                 indicator.textContent = "🟡 💡 화면을 한 번 터치하면 켜짐 유지가 다시 활성화됩니다.";
             });
         } catch (err) {
             wakeLockObj = null;
-            indicator.style.color = "#ffaa00";
+            indicator.style.color = "#ff9500";
             indicator.textContent = "🟡 💡 화면을 한 번 터치하면 켜짐 유지가 활성화됩니다.";
         }
     }
@@ -493,7 +466,6 @@
     }
 
     window.onload = function() {
-        // 유저 액션 시점에 안전하게 WakeLock 할당
         document.body.addEventListener('click', () => {
             if (!wakeLockObj) requestWakeLock();
         }, { once: false });
@@ -638,7 +610,7 @@
         const buttons = target.querySelectorAll('.btn-shot-group');
         buttons.forEach(b => b.style.visibility = 'hidden');
 
-        html2canvas(target, { scale: 2, backgroundColor: "#0d0f12", useCORS: true }).then(canvas => {
+        html2canvas(target, { scale: 2, backgroundColor: "#f5f5f7", useCORS: true }).then(canvas => {
             buttons.forEach(b => b.style.visibility = 'visible');
             const link = document.createElement('a');
             link.download = `${fileName}_${Date.now()}.png`;
@@ -768,7 +740,7 @@
             const disableWinOpt = (inp.onetwo === 'A' && !isTeamA) || (inp.onetwo === 'B' && isTeamA);
 
             container.innerHTML = `
-                <div style="font-weight:bold; margin-bottom:3px; color:#fff;">${name}</div>
+                <div style="font-weight:600; margin-bottom:4px; color:var(--text-color);">${name}</div>
                 <div class="option-group">
                     <button class="opt-btn ${currentVal==='none'?'active-win':''}" onclick="setTichuState('${p}','none')">안함</button>
                     <button class="opt-btn ${currentVal==='lt_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3;"' : ''} onclick="setTichuState('${p}','lt_win')">라티O</button>
@@ -780,24 +752,43 @@
         document.getElementById('round-title').textContent = appState.roundNum + " 라운드 점수 카운팅";
     }
 
+    // 💡 [시인성 개선] 라운드 결과 기록 및 포맷팅 (원투 굵게, 티츄 성패 굵게, 줄바꿈)
     function addRoundRow() {
         const inp = appState.currentInput;
-        let bonusA = 0; let bonusB = 0; let logArray = [];
-        if(inp.onetwo !== 'none') logArray.push(inp.onetwo + "팀 원투");
+        let bonusA = 0; let bonusB = 0; 
+        
+        let teamLog = "";
+        if(inp.onetwo !== 'none') {
+            teamLog = `<b>${inp.onetwo}팀 원투</b>`;
+        }
+
+        let playerLogs = [];
         const tichuSnapshot = JSON.parse(JSON.stringify(inp.tichu));
 
         ['a1','a2','b1','b2'].forEach(p => {
             const status = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2'); 
             const pName = appState.players[p] || p; 
             
-            if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; logArray.push(pName+"(라티O)"); }
-            if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; logArray.push(pName+"(라티X)"); }
-            if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; logArray.push(pName+"(스티O)"); }
-            if(status === 'st_fail') { bonusA += isTeamA?-100:0; bonusB += isTeamA?0:-100; logArray.push(pName+"(스티X)"); }
+            if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; playerLogs.push(`<b>${pName}(라티O)</b>`); }
+            if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; playerLogs.push(`<b>${pName}(라티X)</b>`); }
+            if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; playerLogs.push(`<b>${pName}(스티O)</b>`); }
+            if(status === 'st_fail') { bonusA += isTeamA?-100:0; bonusB += isTeamA?0:-100; playerLogs.push(`<b>${pName}(스티X)</b>`); }
         });
 
+        // 💡 [개선] 팀 정보와 개인 티츄 정보가 둘 다 있을 경우 줄바꿈(<br>) 처리
+        let metaHtml = "";
+        if (teamLog && playerLogs.length > 0) {
+            metaHtml = `${teamLog}<br>${playerLogs.join(', ')}`;
+        } else if (teamLog) {
+            metaHtml = teamLog;
+        } else if (playerLogs.length > 0) {
+            metaHtml = playerLogs.join(', ');
+        } else {
+            metaHtml = "정규 스코어링";
+        }
+
         appState.matchHistory.push({
-            round: appState.roundNum, calcA: inp.scoreA + bonusA, calcB: inp.scoreB + bonusB, meta: logArray.join(', ') || '정규 스코어링',
+            round: appState.roundNum, calcA: inp.scoreA + bonusA, calcB: inp.scoreB + bonusB, meta: metaHtml,
             back_scoreA: inp.scoreA, back_scoreB: inp.scoreB, back_onetwo: inp.onetwo, back_tichu: tichuSnapshot
         });
 
@@ -818,7 +809,7 @@
         appState.matchHistory.forEach((h, idx) => {
             accA += h.calcA; accB += h.calcB;
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${h.round} R</td><td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td><td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td><td>${h.meta}</td><td><button class="btn btn-red" style="padding:2px 6px; font-size:0.75rem;" onclick="rollbackRoundRow(${idx})">↩️ 취소</button></td>`;
+            tr.innerHTML = `<td>${h.round} R</td><td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td><td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td><td style="text-align:center; font-size:0.85rem; line-height:1.4;">${h.meta}</td><td><button class="btn btn-red" style="padding:4px 8px; font-size:0.75rem;" onclick="rollbackRoundRow(${idx})">↩️ 취소</button></td>`;
             tbody.appendChild(tr);
         });
         document.getElementById('sum_a').textContent = accA + " 점"; document.getElementById('sum_b').textContent = accB + " 점";
@@ -934,7 +925,7 @@
             const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             
-            tr.innerHTML = `<td style="font-weight:bold; background:#161b22; color:#fff;">${row.name}</td><td class="${cWin}">${row.wins}승<small style="color:var(--text-sub); font-weight:normal;">(${row.matches}전)</small></td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
+            tr.innerHTML = `<td style="font-weight:600; background:#f2f2f7;">${row.name}</td><td class="${cWin}">${row.wins}승<small style="color:var(--text-sub); font-weight:normal;">(${row.matches}전)</small></td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
             tbody.appendChild(tr);
         });
     }
@@ -992,7 +983,7 @@
                 <td>${h.round} R</td>
                 <td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td>
                 <td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td>
-                <td style="font-size:0.85rem; text-align:left;">${h.meta}</td>
+                <td style="font-size:0.85rem; text-align:center; line-height:1.4;">${h.meta}</td>
             `;
             tbody.appendChild(tr);
         });

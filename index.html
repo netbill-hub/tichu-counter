@@ -752,14 +752,14 @@
         document.getElementById('round-title').textContent = appState.roundNum + " 라운드 점수 카운팅";
     }
 
-    // 💡 [시인성 개선] 라운드 결과 기록 및 포맷팅 (원투 굵게, 티츄 성패 굵게, 줄바꿈)
+    // 💡 백틱 문법 오류 수정을 거친 안전한 라운드 로깅 함수
     function addRoundRow() {
         const inp = appState.currentInput;
         let bonusA = 0; let bonusB = 0; 
         
         let teamLog = "";
-        if(inp.onetwo !== 'none') {
-            teamLog = `<b>${inp.onetwo}팀 원투</b>`;
+        if (inp.onetwo !== 'none') {
+            teamLog = "<b>" + inp.onetwo + "팀 원투</b>";
         }
 
         let playerLogs = [];
@@ -769,16 +769,15 @@
             const status = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2'); 
             const pName = appState.players[p] || p; 
             
-            if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; playerLogs.push(`<b>${pName}(라티O)</b>`); }
-            if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; playerLogs.push(`<b>${pName}(라티X)</b>`); }
-            if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; playerLogs.push(`<b>${pName}(스티O)</b>`); }
-            if(status === 'st_fail') { bonusA += isTeamA?-100:0; bonusB += isTeamA?0:-100; playerLogs.push(`<b>${pName}(스티X)</b>`); }
+            if(status === 'lt_win') { bonusA += isTeamA?200:0; bonusB += isTeamA?0:200; playerLogs.push("<b>" + pName + "(라티O)</b>"); }
+            if(status === 'lt_fail') { bonusA += isTeamA?-200:0; bonusB += isTeamA?0:-200; playerLogs.push("<b>" + pName + "(라티X)</b>"); }
+            if(status === 'st_win') { bonusA += isTeamA?100:0; bonusB += isTeamA?0:100; playerLogs.push("<b>" + pName + "(스티O)</b>"); }
+            if(status === 'st_fail') { bonusA += isTeamA?-100:0; bonusB += isTeamA?0:-100; playerLogs.push("<b>" + pName + "(스티X)</b>"); }
         });
 
-        // 💡 [개선] 팀 정보와 개인 티츄 정보가 둘 다 있을 경우 줄바꿈(<br>) 처리
         let metaHtml = "";
         if (teamLog && playerLogs.length > 0) {
-            metaHtml = `${teamLog}<br>${playerLogs.join(', ')}`;
+            metaHtml = teamLog + "<br>" + playerLogs.join(', ');
         } else if (teamLog) {
             metaHtml = teamLog;
         } else if (playerLogs.length > 0) {

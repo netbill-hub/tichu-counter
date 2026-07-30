@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>티츄 카운터 & 마스터 대시보드 (Apple Minimal)</title>
-    <!-- 스크린샷 캡처 및 Firebase 연동 라이브러리 -->
+    <!-- 화면 캡처 라이브러리 (실패 시에도 앱 실행에 지장 없도록 안전 장치 적용) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -427,25 +427,21 @@
     let globalStats = {};
     let globalLogs = []; 
     let currentSort = { col: 'wins', dir: 'desc' };
-
     let wakeLockObj = null;
 
     async function requestWakeLock() {
         const indicator = document.getElementById('wakelock-indicator');
         if (!indicator) return;
-        
         if (!('wakeLock' in navigator)) {
             indicator.style.color = "#ff3b30";
             indicator.textContent = "⚠️ 이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.";
             return;
         }
-
         try {
             if (wakeLockObj !== null) return;
             wakeLockObj = await navigator.wakeLock.request('screen');
             indicator.style.color = "#34c759";
             indicator.textContent = "🟢 💡 화면 켜짐 유지 활성화됨";
-
             wakeLockObj.addEventListener('release', () => {
                 wakeLockObj = null;
                 indicator.style.color = "#ff9500";
@@ -507,7 +503,7 @@
     function loadStatsFromCloud() {
         const baseUrl = getCleanBaseUrl();
         if(!baseUrl) return;
-        fetch(`${baseUrl}globalStats.json`)
+        fetch(baseUrl + 'globalStats.json')
         .then(res => res.json())
         .then(data => {
             if(data) globalStats = data;
@@ -520,7 +516,7 @@
         const baseUrl = getCleanBaseUrl();
         if(!baseUrl) return;
         
-        fetch(`${baseUrl}globalLogs.json`)
+        fetch(baseUrl + 'globalLogs.json')
         .then(res => res.json())
         .then(data => {
             let parsedLogs = [];
@@ -531,7 +527,7 @@
                     parsedLogs = Object.keys(data).map(key => {
                         const val = data[key];
                         if (val && typeof val === 'object') {
-                            return { ...val, firebaseKey: key };
+                            return Object.assign({}, val, { firebaseKey: key });
                         }
                         return null;
                     }).filter(item => item !== null);
@@ -552,22 +548,22 @@
         if (!baseUrl) return;
         try {
             const encodedName = encodeURIComponent(playerName);
-            await fetch(`${baseUrl}globalStats/${encodedName}.json`, {
+            await fetch(baseUrl + 'globalStats/' + encodedName + '.json', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedData)
             });
         } catch (err) {
-            console.error(`플레이어 [${playerName}] 스탯 업데이트 실패:`, err);
+            console.error("플레이어 스탯 업데이트 실패:", err);
         }
     }
 
-    async function pushLogToCloud(infoText, detailsSnapshot = null) {
+    async function pushLogToCloud(infoText, detailsSnapshot) {
         const newLogItem = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             date: getFormattedDate(),
             info: infoText,
-            details: detailsSnapshot
+            details: detailsSnapshot || null
         };
 
         const baseUrl = getCleanBaseUrl();
@@ -577,9 +573,10 @@
             return;
         }
 
-        document.getElementById('sync-indicator').textContent = "🔄 서버에 실시간 동기화 중...";
+        const indicator = document.getElementById('sync-indicator');
+        if(indicator) indicator.textContent = "🔄 서버에 실시간 동기화 중...";
         try {
-            const res = await fetch(`${baseUrl}globalLogs.json`, {
+            const res = await fetch(baseUrl + 'globalLogs.json', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newLogItem)
@@ -589,10 +586,10 @@
                 if (resData && resData.name) {
                     newLogItem.firebaseKey = resData.name;
                 }
-                document.getElementById('sync-indicator').textContent = "🟢 실시간 클라우드 동기화 완료";
+                if(indicator) indicator.textContent = "🟢 실시간 클라우드 동기화 완료";
             }
         } catch (err) {
-            document.getElementById('sync-indicator').textContent = "🔴 동기화 실패";
+            if(indicator) indicator.textContent = "🔴 동기화 실패";
             console.error("로그 전송 오류:", err);
         }
 
@@ -607,13 +604,17 @@
     function takeScreenshot(targetId, fileName) {
         const target = document.getElementById(targetId);
         if(!target) return;
+        if(typeof html2canvas === 'undefined') {
+            alert("캡처 라이브러리가 로드되지 않았습니다.");
+            return;
+        }
         const buttons = target.querySelectorAll('.btn-shot-group');
         buttons.forEach(b => b.style.visibility = 'hidden');
 
         html2canvas(target, { scale: 2, backgroundColor: "#f5f5f7", useCORS: true }).then(canvas => {
             buttons.forEach(b => b.style.visibility = 'visible');
             const link = document.createElement('a');
-            link.download = `${fileName}_${Date.now()}.png`;
+            link.download = fileName + '_' + Date.now() + '.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
         }).catch(err => {
@@ -636,12 +637,16 @@
     function getFormattedDate() {
         const d = new Date();
         const pad = (n) => n < 10 ? '0' + n : n;
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
 
     function freezeInputs(flag) {
-        ['a1','a2','b1','b2'].forEach(p => document.getElementById('name_'+p).disabled = flag);
-        document.getElementById('lock-btn').disabled = flag;
+        ['a1','a2','b1','b2'].forEach(p => {
+            const el = document.getElementById('name_' + p);
+            if(el) el.disabled = flag;
+        });
+        const lockBtn = document.getElementById('lock-btn');
+        if(lockBtn) lockBtn.disabled = flag;
     }
 
     function lockPlayers() {
@@ -729,30 +734,32 @@
         const inp = appState.currentInput;
         document.getElementById('disp_a').textContent = inp.scoreA;
         document.getElementById('disp_b').textContent = inp.scoreB;
-        ['none', 'A', 'B'].forEach(m => { document.getElementById('ot_'+m).className = (inp.onetwo === m) ? 'opt-btn active-win' : 'opt-btn'; });
+        ['none', 'A', 'B'].forEach(m => {
+            const btn = document.getElementById('ot_' + m);
+            if(btn) btn.className = (inp.onetwo === m) ? 'opt-btn active-win' : 'opt-btn';
+        });
         const isOt = inp.onetwo !== 'none';
         document.getElementById('minus_a').disabled = isOt; document.getElementById('plus_a').disabled = isOt;
         document.getElementById('minus_b').disabled = isOt; document.getElementById('plus_b').disabled = isOt;
 
         ['a1','a2','b1','b2'].forEach(p => {
-            const container = document.getElementById('tichu_ui_'+p); if(!container) return;
+            const container = document.getElementById('tichu_ui_' + p); if(!container) return;
             const name = appState.players[p]; const currentVal = inp.tichu[p]; const isTeamA = (p === 'a1' || p === 'a2');
             const disableWinOpt = (inp.onetwo === 'A' && !isTeamA) || (inp.onetwo === 'B' && isTeamA);
 
-            container.innerHTML = `
-                <div style="font-weight:600; margin-bottom:4px; color:var(--text-color);">${name}</div>
-                <div class="option-group">
-                    <button class="opt-btn ${currentVal==='none'?'active-win':''}" onclick="setTichuState('${p}','none')">안함</button>
-                    <button class="opt-btn ${currentVal==='lt_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3;"' : ''} onclick="setTichuState('${p}','lt_win')">라티O</button>
-                    <button class="opt-btn ${currentVal==='lt_fail'?'active-fail':''}" onclick="setTichuState('${p}','lt_fail')">라티X</button>
-                    <button class="opt-btn ${currentVal==='st_win'?'active-win':''}" ${disableWinOpt ? 'disabled style="opacity:0.3;"' : ''} onclick="setTichuState('${p}','st_win')">스티O</button>
-                    <button class="opt-btn ${currentVal==='st_fail'?'active-fail':''}" onclick="setTichuState('${p}','st_fail')">스티X</button>
-                </div>`;
+            container.innerHTML = 
+                '<div style="font-weight:600; margin-bottom:4px; color:var(--text-color);">' + name + '</div>' +
+                '<div class="option-group">' +
+                    '<button class="opt-btn ' + (currentVal==='none'?'active-win':'') + '" onclick="setTichuState(\'' + p + '\',\'none\')">안함</button>' +
+                    '<button class="opt-btn ' + (currentVal==='lt_win'?'active-win':'') + '" ' + (disableWinOpt ? 'disabled style="opacity:0.3;"' : '') + ' onclick="setTichuState(\'' + p + '\',\'lt_win\')">라티O</button>' +
+                    '<button class="opt-btn ' + (currentVal==='lt_fail'?'active-fail':'') + '" onclick="setTichuState(\'' + p + '\',\'lt_fail\')">라티X</button>' +
+                    '<button class="opt-btn ' + (currentVal==='st_win'?'active-win':'') + '" ' + (disableWinOpt ? 'disabled style="opacity:0.3;"' : '') + ' onclick="setTichuState(\'' + p + '\',\'st_win\')">스티O</button>' +
+                    '<button class="opt-btn ' + (currentVal==='st_fail'?'active-fail':'') + '" onclick="setTichuState(\'' + p + '\',\'st_fail\')">스티X</button>' +
+                '</div>';
         });
         document.getElementById('round-title').textContent = appState.roundNum + " 라운드 점수 카운팅";
     }
 
-    // 💡 백틱 문법 오류 수정을 거친 안전한 라운드 로깅 함수
     function addRoundRow() {
         const inp = appState.currentInput;
         let bonusA = 0; let bonusB = 0; 
@@ -808,7 +815,11 @@
         appState.matchHistory.forEach((h, idx) => {
             accA += h.calcA; accB += h.calcB;
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${h.round} R</td><td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td><td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td><td style="text-align:center; font-size:0.85rem; line-height:1.4;">${h.meta}</td><td><button class="btn btn-red" style="padding:4px 8px; font-size:0.75rem;" onclick="rollbackRoundRow(${idx})">↩️ 취소</button></td>`;
+            tr.innerHTML = '<td>' + h.round + ' R</td>' +
+                '<td style="color:var(--team-a-color); font-weight:bold;">' + accA + ' <small style="color:var(--text-sub); font-weight:normal;">(' + (h.calcA >= 0 ? '+' + h.calcA : h.calcA) + ')</small></td>' +
+                '<td style="color:var(--team-b-color); font-weight:bold;">' + accB + ' <small style="color:var(--text-sub); font-weight:normal;">(' + (h.calcB >= 0 ? '+' + h.calcB : h.calcB) + ')</small></td>' +
+                '<td style="text-align:center; font-size:0.85rem; line-height:1.4;">' + h.meta + '</td>' +
+                '<td><button class="btn btn-red" style="padding:4px 8px; font-size:0.75rem;" onclick="rollbackRoundRow(' + idx + ')">↩️ 취소</button></td>';
             tbody.appendChild(tr);
         });
         document.getElementById('sum_a').textContent = accA + " 점"; document.getElementById('sum_b').textContent = accB + " 점";
@@ -828,14 +839,14 @@
         const baseUrl = getCleanBaseUrl();
         if (baseUrl) {
             try {
-                const res = await fetch(`${baseUrl}globalStats.json`);
+                const res = await fetch(baseUrl + 'globalStats.json');
                 const latestData = await res.json();
                 if (latestData) globalStats = latestData;
             } catch(e) {}
         }
 
         sessionPlayers.forEach(name => {
-            if(!globalStats[name]) globalStats[name] = { name, wins: 0, matches: 0, tichuPoints: 0 };
+            if(!globalStats[name]) globalStats[name] = { name: name, wins: 0, matches: 0, tichuPoints: 0 };
             globalStats[name].matches += 1;
         });
 
@@ -845,13 +856,13 @@
         roundList.forEach(h => {
             const rawText = h.meta;
             sessionPlayers.forEach(name => {
-                if(rawText.includes(name + "(라티O)")) globalStats[name].tichuPoints += 3;
-                if(rawText.includes(name + "(스티O)")) globalStats[name].tichuPoints += 1;
+                if(rawText.indexOf(name + "(라티O)") !== -1) globalStats[name].tichuPoints += 3;
+                if(rawText.indexOf(name + "(스티O)") !== -1) globalStats[name].tichuPoints += 1;
             });
         });
 
-        for (const name of sessionPlayers) {
-            await updateSinglePlayerStat(name, globalStats[name]);
+        for (let i = 0; i < sessionPlayers.length; i++) {
+            await updateSinglePlayerStat(sessionPlayers[i], globalStats[sessionPlayers[i]]);
         }
 
         const matchDetailsSnapshot = {
@@ -861,7 +872,7 @@
             finalB: finalB,
             winnerTeam: winnerTeam
         };
-        await pushLogToCloud(`[플레이 결과] ${p.a1}, ${p.a2} VS ${p.b1}, ${p.b2} (승리: ${winnerTeam}팀)`, matchDetailsSnapshot);
+        await pushLogToCloud("[플레이 결과] " + p.a1 + ", " + p.a2 + " VS " + p.b1 + ", " + p.b2 + " (승리: " + winnerTeam + "팀)", matchDetailsSnapshot);
 
         appState.roundNum = 1; appState.matchHistory = []; appState.isLocked = false;
         freezeInputs(false);
@@ -899,7 +910,7 @@
             }
         });
 
-        if(keys.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-sub);">기록된 통계 데이터가 없습니다.</td></tr>`; return; }
+        if(keys.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-sub);">기록된 통계 데이터가 없습니다.</td></tr>'; return; }
         
         let maxWin = -1; let maxRate = -1; let maxTp = -1;
         const processedRows = keys.map(k => {
@@ -924,7 +935,10 @@
             const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             
-            tr.innerHTML = `<td style="font-weight:600; background:#f2f2f7;">${row.name}</td><td class="${cWin}">${row.wins}승<small style="color:var(--text-sub); font-weight:normal;">(${row.matches}전)</small></td><td class="${cRate}">${row.rate}%</td><td class="${cTp}">${row.tp}점</td>`;
+            tr.innerHTML = '<td style="font-weight:600; background:#f2f2f7;">' + row.name + '</td>' +
+                '<td class="' + cWin + '">' + row.wins + '승<small style="color:var(--text-sub); font-weight:normal;">(' + row.matches + '전)</small></td>' +
+                '<td class="' + cRate + '">' + row.rate + '%</td>' +
+                '<td class="' + cTp + '">' + row.tp + '점</td>';
             tbody.appendChild(tr);
         });
     }
@@ -935,7 +949,7 @@
         container.innerHTML = '';
         
         if(!globalLogs || globalLogs.length === 0) { 
-            container.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:20px;">이력이 존재하지 않습니다.</div>`; 
+            container.innerHTML = '<div style="text-align:center; color:var(--text-sub); padding:20px;">이력이 존재하지 않습니다.</div>'; 
             return; 
         }
         
@@ -947,13 +961,12 @@
             const logIdStr = String(log.id || '');
             const fbKeyStr = String(log.firebaseKey || '');
             
-            div.innerHTML = `
-                <div class="history-clickable-zone" onclick="viewLogDetail('${logIdStr}')" title="상세 스코어보드 보기">
-                    <span class="history-date">${log.date || ''}</span>
-                    <span class="history-info">${log.info || ''}</span>
-                </div>
-                <button class="history-del-btn" onclick="deleteLogItem('${logIdStr}', '${fbKeyStr}')" title="이 기록 삭제">🗑️</button>
-            `;
+            div.innerHTML = 
+                '<div class="history-clickable-zone" onclick="viewLogDetail(\'' + logIdStr + '\')" title="상세 스코어보드 보기">' +
+                    '<span class="history-date">' + (log.date || '') + '</span>' +
+                    '<span class="history-info">' + (log.info || '') + '</span>' +
+                '</div>' +
+                '<button class="history-del-btn" onclick="deleteLogItem(\'' + logIdStr + '\', \'' + fbKeyStr + '\')" title="이 기록 삭제">🗑️</button>';
             container.appendChild(div);
         });
     }
@@ -968,8 +981,8 @@
         }
 
         const d = log.details;
-        document.getElementById('modal-match-title').textContent = `📊 과거 경기 스코어보드 복원`;
-        document.getElementById('modal-match-sub').textContent = `일시: ${log.date} | A팀(${d.players.a1}, ${d.players.a2}) VS B팀(${d.players.b1}, ${d.players.b2})`;
+        document.getElementById('modal-match-title').textContent = "📊 과거 경기 스코어보드 복원";
+        document.getElementById('modal-match-sub').textContent = "일시: " + log.date + " | A팀(" + d.players.a1 + ", " + d.players.a2 + ") VS B팀(" + d.players.b1 + ", " + d.players.b2 + ")";
 
         const tbody = document.getElementById('modal-board-tbody');
         tbody.innerHTML = '';
@@ -978,18 +991,16 @@
         d.history.forEach(h => {
             accA += h.calcA; accB += h.calcB;
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${h.round} R</td>
-                <td style="color:var(--team-a-color); font-weight:bold;">${accA} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcA >= 0 ? '+' + h.calcA : h.calcA})</small></td>
-                <td style="color:var(--team-b-color); font-weight:bold;">${accB} <small style="color:var(--text-sub); font-weight:normal;">(${h.calcB >= 0 ? '+' + h.calcB : h.calcB})</small></td>
-                <td style="font-size:0.85rem; text-align:center; line-height:1.4;">${h.meta}</td>
-            `;
+            tr.innerHTML = '<td>' + h.round + ' R</td>' +
+                '<td style="color:var(--team-a-color); font-weight:bold;">' + accA + ' <small style="color:var(--text-sub); font-weight:normal;">(' + (h.calcA >= 0 ? '+' + h.calcA : h.calcA) + ')</small></td>' +
+                '<td style="color:var(--team-b-color); font-weight:bold;">' + accB + ' <small style="color:var(--text-sub); font-weight:normal;">(' + (h.calcB >= 0 ? '+' + h.calcB : h.calcB) + ')</small></td>' +
+                '<td style="font-size:0.85rem; text-align:center; line-height:1.4;">' + h.meta + '</td>';
             tbody.appendChild(tr);
         });
 
         document.getElementById('modal-sum-a').textContent = accA + " 점";
         document.getElementById('modal-sum-b').textContent = accB + " 점";
-        document.getElementById('modal-winner-tag').textContent = `🏆 승리: ${d.winnerTeam}팀`;
+        document.getElementById('modal-winner-tag').textContent = "🏆 승리: " + d.winnerTeam + "팀";
 
         document.getElementById('score-modal').style.display = 'flex';
     }
@@ -1012,7 +1023,7 @@
         const baseUrl = getCleanBaseUrl();
         if (baseUrl && firebaseKey && firebaseKey !== 'undefined') {
             try {
-                await fetch(`${baseUrl}globalLogs/${firebaseKey}.json`, { method: 'DELETE' });
+                await fetch(baseUrl + 'globalLogs/' + firebaseKey + '.json', { method: 'DELETE' });
             } catch(e) {}
         }
         alert("🗑️ 해당 로그 항목이 삭제되었습니다.");
@@ -1030,14 +1041,22 @@
         const tbody = document.getElementById('admin-tbody'); tbody.innerHTML = '';
         Object.keys(globalStats).forEach(k => {
             const p = globalStats[k]; const tr = document.createElement('tr');
-            tr.innerHTML = `<td><input type="text" value="${p.name}" data-oldname="${p.name}" class="adm-name" style="width:120px; text-align:left;"></td><td><input type="number" value="${p.wins}" class="adm-wins"></td><td><input type="number" value="${p.matches}" class="adm-matches"></td><td><input type="number" value="${p.tichuPoints}" class="adm-tp"></td><td><button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteAdminRow(this)">삭제</button></td>`;
+            tr.innerHTML = '<td><input type="text" value="' + p.name + '" data-oldname="' + p.name + '" class="adm-name" style="width:120px; text-align:left;"></td>' +
+                '<td><input type="number" value="' + p.wins + '" class="adm-wins"></td>' +
+                '<td><input type="number" value="' + p.matches + '" class="adm-matches"></td>' +
+                '<td><input type="number" value="' + p.tichuPoints + '" class="adm-tp"></td>' +
+                '<td><button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteAdminRow(this)">삭제</button></td>';
             tbody.appendChild(tr);
         });
     }
 
     function addBlankAdminRow() {
         const tbody = document.getElementById('admin-tbody'); const tr = document.createElement('tr');
-        tr.innerHTML = `<td><input type="text" value="" data-oldname="" class="adm-name" style="width:120px; text-align:left;" placeholder="새 이름"></td><td><input type="number" value="0" class="adm-wins"></td><td><input type="number" value="0" class="adm-matches"></td><td><input type="number" value="0" class="adm-tp"></td><td><button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteAdminRow(this)">삭제</button></td>`;
+        tr.innerHTML = '<td><input type="text" value="" data-oldname="" class="adm-name" style="width:120px; text-align:left;" placeholder="새 이름"></td>' +
+            '<td><input type="number" value="0" class="adm-wins"></td>' +
+            '<td><input type="number" value="0" class="adm-matches"></td>' +
+            '<td><input type="number" value="0" class="adm-tp"></td>' +
+            '<td><button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteAdminRow(this)">삭제</button></td>';
         tbody.appendChild(tr);
     }
 
@@ -1047,21 +1066,24 @@
         if(!confirm("통계를 동기화하시겠습니까?")) return;
         const tbody = document.getElementById('admin-tbody'); const rows = tbody.querySelectorAll('tr'); let newGlobalStats = {};
         for(let i=0; i<rows.length; i++) {
-            const name = rows[i].querySelector('.adm-name').value.trim(); const wins = parseInt(rows[i].querySelector('.adm-wins').value) || 0; const matches = parseInt(rows[i].querySelector('.adm-matches').value) || 0; const tichuPoints = parseInt(rows[i].querySelector('.adm-tp').value) || 0;
+            const name = rows[i].querySelector('.adm-name').value.trim(); 
+            const wins = parseInt(rows[i].querySelector('.adm-wins').value) || 0; 
+            const matches = parseInt(rows[i].querySelector('.adm-matches').value) || 0; 
+            const tichuPoints = parseInt(rows[i].querySelector('.adm-tp').value) || 0;
             if(!name) { alert("빈 필드가 있습니다."); return; } if(wins > matches) { alert("승리 판수가 총 판수보다 큽니다."); return; }
-            newGlobalStats[name] = { name, wins, matches, tichuPoints };
+            newGlobalStats[name] = { name: name, wins: wins, matches: matches, tichuPoints: tichuPoints };
         }
         globalStats = newGlobalStats; 
 
         const baseUrl = getCleanBaseUrl();
         if (baseUrl) {
-            await fetch(`${baseUrl}globalStats.json`, {
+            await fetch(baseUrl + 'globalStats.json', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(globalStats)
             });
         }
-        await pushLogToCloud(`[관리자 수정] 외부 데이터 연동 통합 편집 수정`);
+        await pushLogToCloud("[관리자 수정] 외부 데이터 연동 통합 편집 수정", null);
         
         renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
@@ -1083,8 +1105,8 @@
         saveState();
         const baseUrl = getCleanBaseUrl();
         if (baseUrl) {
-            await fetch(`${baseUrl}globalStats.json`, { method: 'DELETE' });
-            await fetch(`${baseUrl}globalLogs.json`, { method: 'DELETE' });
+            await fetch(baseUrl + 'globalStats.json', { method: 'DELETE' });
+            await fetch(baseUrl + 'globalLogs.json', { method: 'DELETE' });
         }
         resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
         alert("💥 모든 자료가 공장 초기화되었습니다.");

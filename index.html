@@ -9,8 +9,8 @@
     <style>
         :root {
             --bg-color: #0d0f12;
-            --card-bg: rgba(22, 27, 34, 0.85);
-            --card-border: rgba(255, 255, 255, 0.1);
+            --card-bg: #161b22;
+            --card-border: rgba(255, 255, 255, 0.12);
             --team-a-color: #00f0ff;
             --team-a-glow: rgba(0, 240, 255, 0.3);
             --team-b-color: #ff0055;
@@ -42,7 +42,6 @@
         .card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            backdrop-filter: blur(12px);
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 20px;
@@ -256,7 +255,7 @@
 <div class="container">
     <h1>🃏 티츄 카운팅 & 통계 시스템</h1>
     <div id="sync-indicator">🟢 실시간 클라우드 동기화 모드 작동 중</div>
-    <div id="wakelock-indicator" onclick="requestWakeLock()">💡 화면 켜짐 유지 모드 준비 중</div>
+    <div id="wakelock-indicator" onclick="requestWakeLock()">💡 화면 켜짐 유지 모드 준비 중 (터치 시 활성화)</div>
 
     <!-- 1. 참여자 설정 -->
     <div class="card">
@@ -457,8 +456,11 @@
 
     let wakeLockObj = null;
 
+    // 💡 안전하게 리팩토링된 Wake Lock 요청 함수 (에러 인터셉트 방식)
     async function requestWakeLock() {
         const indicator = document.getElementById('wakelock-indicator');
+        if (!indicator) return;
+        
         if (!('wakeLock' in navigator)) {
             indicator.style.color = "#ff0055";
             indicator.textContent = "⚠️ 이 브라우저는 화면 켜짐 유지를 지원하지 않습니다.";
@@ -491,8 +493,7 @@
     }
 
     window.onload = function() {
-        requestWakeLock();
-
+        // 유저 액션 시점에 안전하게 WakeLock 할당
         document.body.addEventListener('click', () => {
             if (!wakeLockObj) requestWakeLock();
         }, { once: false });

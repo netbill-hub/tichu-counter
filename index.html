@@ -183,15 +183,44 @@
             font-weight: 800 !important; 
             background-color: #fef3c7; 
         }
-        .input-text { 
-            width: 100%; padding: 8px; box-sizing: border-box; 
+
+        .player-select-row {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .select-box, .input-text { 
+            flex: 1; padding: 8px; box-sizing: border-box; 
             background: #f2f2f7; color: var(--text-color);
             border: 1px solid transparent; border-radius: 8px; 
-            font-size: 0.9rem;
+            font-size: 0.85rem; font-weight: 600;
         }
-        .input-text:focus { outline: none; background: #fff; border-color: var(--team-a-color); }
+        .select-box:focus, .input-text:focus { outline: none; background: #fff; border-color: var(--team-a-color); }
+        .btn-new-user {
+            padding: 7px 8px;
+            font-size: 0.75rem;
+            background: #e5e5ea;
+            color: var(--text-color);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .btn-new-user:active { background: #d1d1d6; }
+
         label { font-weight: 600; display: block; margin: 6px 0 2px 0; color: var(--text-sub); font-size: 0.8rem; }
         
+        .clickable-player {
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .clickable-player:hover {
+            background-color: #e5e5ea !important;
+            text-decoration: underline;
+        }
+
         .admin-section { background-color: #f3e8ff; border: 1px dashed var(--admin-color); border-radius: 12px; padding: 12px; margin-top: 15px; }
         .admin-table input { width: 70px; padding: 4px; text-align: center; border-radius: 6px; border: 1px solid #d1d1d6; background: #fff; }
         
@@ -227,8 +256,6 @@
 </head>
 <body>
 
-<datalist id="past-players-pool"></datalist>
-
 <div class="container">
     <h1>티츄 카운팅 & 통계 시스템</h1>
     <div id="sync-indicator">🟢 실시간 클라우드 동기화 모드 작동 중</div>
@@ -238,18 +265,45 @@
     <div class="card">
         <h2>1. 팀 빌딩</h2>
         <div class="flex-group">
+            <!-- A팀 영역 -->
             <div class="flex-child">
                 <div class="team-header team-a-head">A 팀</div>
-                <label>플레이어 1</label><input type="text" id="name_a1" class="input-text" value="A선수1" list="past-players-pool" autocomplete="off">
-                <label>플레이어 2</label><input type="text" id="name_a2" class="input-text" value="A선수2" list="past-players-pool" autocomplete="off">
+                <label>플레이어 1</label>
+                <div class="player-select-row">
+                    <select id="select_a1" class="select-box"></select>
+                    <input type="text" id="name_a1" class="input-text" style="display:none;" placeholder="이름 입력">
+                    <button class="btn-new-user" id="btn_new_a1" onclick="toggleNewUserMode('a1')">➕ 신규</button>
+                </div>
+
+                <label>플레이어 2</label>
+                <div class="player-select-row">
+                    <select id="select_a2" class="select-box"></select>
+                    <input type="text" id="name_a2" class="input-text" style="display:none;" placeholder="이름 입력">
+                    <button class="btn-new-user" id="btn_new_a2" onclick="toggleNewUserMode('a2')">➕ 신규</button>
+                </div>
             </div>
+
+            <!-- B팀 영역 -->
             <div class="flex-child">
                 <div class="team-header team-b-head">B 팀</div>
-                <label>플레이어 1</label><input type="text" id="name_b1" class="input-text" value="B선수1" list="past-players-pool" autocomplete="off">
-                <label>플레이어 2</label><input type="text" id="name_b2" class="input-text" value="B선수2" list="past-players-pool" autocomplete="off">
+                <label>플레이어 1</label>
+                <div class="player-select-row">
+                    <select id="select_b1" class="select-box"></select>
+                    <input type="text" id="name_b1" class="input-text" style="display:none;" placeholder="이름 입력">
+                    <button class="btn-new-user" id="btn_new_b1" onclick="toggleNewUserMode('b1')">➕ 신규</button>
+                </div>
+
+                <label>플레이어 2</label>
+                <div class="player-select-row">
+                    <select id="select_b2" class="select-box"></select>
+                    <input type="text" id="name_b2" class="input-text" style="display:none;" placeholder="이름 입력">
+                    <button class="btn-new-user" id="btn_new_b2" onclick="toggleNewUserMode('b2')">➕ 신규</button>
+                </div>
             </div>
         </div>
+
         <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px;">
+            <button class="btn btn-gray" id="random-btn" onclick="shufflePlayers()">🎲 팀 랜덤 매칭</button>
             <button class="btn btn-blue" id="lock-btn" onclick="lockPlayers()">게임 매치 시작</button>
         </div>
     </div>
@@ -345,7 +399,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Player</th>
+                    <th>Player <small style="font-weight:normal; color:var(--text-sub);">(클릭시 선택)</small></th>
                     <th class="sortable" onclick="toggleSort('wins')">Win <span id="sort-icon-wins">▼</span></th>
                     <th class="sortable" onclick="toggleSort('rate')">Rate <span id="sort-icon-rate"></span></th>
                     <th class="sortable" onclick="toggleSort('tp')">T-Score <span id="sort-icon-tp"></span></th>
@@ -470,17 +524,6 @@
             if (!wakeLockObj) requestWakeLock();
         }, { once: false });
 
-        ['a1', 'a2', 'b1', 'b2'].forEach(p => {
-            const inputEl = document.getElementById('name_' + p);
-            if(inputEl) {
-                inputEl.addEventListener('focus', function() { 
-                    this.select(); 
-                    const event = new Event('input', { bubbles: true });
-                    this.dispatchEvent(event);
-                });
-            }
-        });
-
         try {
             const localState = localStorage.getItem('tichu_v10_state');
             if(localState) appState = JSON.parse(localState);
@@ -504,6 +547,131 @@
         }
     });
 
+    function toggleNewUserMode(pKey) {
+        const selectEl = document.getElementById('select_' + pKey);
+        const inputEl = document.getElementById('name_' + pKey);
+        const btnEl = document.getElementById('btn_new_' + pKey);
+
+        if (inputEl.style.display === 'none') {
+            inputEl.style.display = 'block';
+            selectEl.style.display = 'none';
+            btnEl.textContent = '📋 선택';
+            inputEl.focus();
+        } else {
+            inputEl.style.display = 'none';
+            selectEl.style.display = 'block';
+            btnEl.textContent = '➕ 신규';
+        }
+    }
+
+    // 💡 [개선] 판수(matches)가 가장 많은 플레이어들을 상위에 기본으로 자동 채우기
+    function populatePlayerDropdowns() {
+        const playerNames = Object.keys(globalStats);
+        
+        // 판수(matches) 기준 내림차순 정렬 (판수가 같으면 승리 순)
+        const sortedByMatches = playerNames.map(name => ({
+            name: name,
+            matches: globalStats[name].matches || 0,
+            wins: globalStats[name].wins || 0
+        })).sort((a, b) => b.matches - a.matches || b.wins - a.wins);
+
+        const keys = ['a1', 'a2', 'b1', 'b2'];
+
+        keys.forEach((key, index) => {
+            const selectEl = document.getElementById('select_' + key);
+            if (!selectEl) return;
+
+            const currentVal = selectEl.value;
+            selectEl.innerHTML = '<option value="">선택하세요</option>';
+
+            playerNames.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                selectEl.appendChild(opt);
+            });
+
+            // 💡 현재 선택된 값이 없다면, 가장 플레이를 많이 한 플레이어를 순서대로(1~4위) 디폴트 설정
+            if (currentVal && playerNames.includes(currentVal)) {
+                selectEl.value = currentVal;
+            } else if (sortedByMatches[index]) {
+                selectEl.value = sortedByMatches[index].name;
+            }
+        });
+    }
+
+    function selectPlayerToInput(playerName) {
+        if (appState.isLocked) return;
+
+        const keys = ['a1', 'a2', 'b1', 'b2'];
+        let targetKey = null;
+
+        for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            const selectEl = document.getElementById('select_' + k);
+            const inputEl = document.getElementById('name_' + k);
+
+            if (inputEl.style.display !== 'none') {
+                if (!inputEl.value.trim()) { targetKey = k; break; }
+            } else if (selectEl) {
+                if (!selectEl.value) { targetKey = k; break; }
+            }
+        }
+
+        if (!targetKey) targetKey = 'a1';
+
+        const selectEl = document.getElementById('select_' + targetKey);
+        const inputEl = document.getElementById('name_' + targetKey);
+
+        if (inputEl.style.display !== 'none') {
+            inputEl.value = playerName;
+        } else if (selectEl) {
+            selectEl.value = playerName;
+        }
+    }
+
+    function shufflePlayers() {
+        const keys = ['a1', 'a2', 'b1', 'b2'];
+        let currentValues = keys.map(k => getPlayerNameFromUI(k));
+
+        for (let i = currentValues.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = currentValues[i];
+            currentValues[i] = currentValues[j];
+            currentValues[j] = temp;
+        }
+
+        keys.forEach((k, index) => {
+            const val = currentValues[index];
+            const selectEl = document.getElementById('select_' + k);
+            const inputEl = document.getElementById('name_' + k);
+
+            if (inputEl.style.display !== 'none') {
+                inputEl.value = val;
+            } else {
+                const options = Array.from(selectEl.options).map(o => o.value);
+                if (options.includes(val)) {
+                    selectEl.value = val;
+                } else {
+                    toggleNewUserMode(k);
+                    inputEl.value = val;
+                }
+            }
+        });
+    }
+
+    function getPlayerNameFromUI(k) {
+        const inputEl = document.getElementById('name_' + k);
+        const selectEl = document.getElementById('select_' + k);
+
+        if (inputEl && inputEl.style.display !== 'none') {
+            return inputEl.value.trim();
+        } else if (selectEl) {
+            return selectEl.value;
+        }
+        return '';
+    }
+
     function loadStatsFromCloud() {
         const baseUrl = getCleanBaseUrl();
         if(!baseUrl) return;
@@ -512,7 +680,7 @@
         .then(data => {
             if(data) globalStats = data;
             renderStatsTable();
-            buildPastPlayersDatalist();
+            populatePlayerDropdowns();
         }).catch(err => console.error("통계 다운로드 오류:", err));
     }
 
@@ -630,17 +798,6 @@
         });
     }
 
-    function buildPastPlayersDatalist() {
-        const datalist = document.getElementById('past-players-pool');
-        if(!datalist) return;
-        datalist.innerHTML = '';
-        Object.keys(globalStats).forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            datalist.appendChild(opt);
-        });
-    }
-
     function getFormattedDate() {
         const d = new Date();
         const pad = (n) => n < 10 ? '0' + n : n;
@@ -649,22 +806,29 @@
 
     function freezeInputs(flag) {
         ['a1','a2','b1','b2'].forEach(p => {
-            const el = document.getElementById('name_' + p);
-            if(el) el.disabled = flag;
+            const elInput = document.getElementById('name_' + p);
+            const elSelect = document.getElementById('select_' + p);
+            const elBtn = document.getElementById('btn_new_' + p);
+            if(elInput) elInput.disabled = flag;
+            if(elSelect) elSelect.disabled = flag;
+            if(elBtn) elBtn.disabled = flag;
         });
         const lockBtn = document.getElementById('lock-btn');
         if(lockBtn) lockBtn.disabled = flag;
+        const randomBtn = document.getElementById('random-btn');
+        if(randomBtn) randomBtn.disabled = flag;
     }
 
     function lockPlayers() {
         requestWakeLock();
         const names = {
-            a1: document.getElementById('name_a1').value.trim(),
-            a2: document.getElementById('name_a2').value.trim(),
-            b1: document.getElementById('name_b1').value.trim(),
-            b2: document.getElementById('name_b2').value.trim()
+            a1: getPlayerNameFromUI('a1'),
+            a2: getPlayerNameFromUI('a2'),
+            b1: getPlayerNameFromUI('b1'),
+            b2: getPlayerNameFromUI('b2')
         };
-        if(!names.a1 || !names.a2 || !names.b1 || !names.b2) { alert("플레이어 이름을 모두 작성해 주세요."); return; }
+
+        if(!names.a1 || !names.a2 || !names.b1 || !names.b2) { alert("플레이어 4명을 모두 선택하거나 입력해 주세요."); return; }
         
         appState.players = names;
         appState.isLocked = true;
@@ -889,7 +1053,7 @@
 
         saveState();
         renderStatsTable();
-        buildPastPlayersDatalist();
+        populatePlayerDropdowns();
     }
 
     function toggleSort(col) {
@@ -1056,7 +1220,6 @@
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             const cAvg = (row.avg === maxAvg && maxAvg > 0) ? 'gold-max' : '';
             
-            // 💡 [개선] 1승/1패인 경우 단수 표기 (승)/(패), 2회 이상부터 (2연승)/(2연패) 표기
             let streakTag = "";
             if (streaks[row.name]) {
                 const s = streaks[row.name];
@@ -1069,7 +1232,8 @@
                 }
             }
 
-            tr.innerHTML = '<td style="font-weight:600; background:#f2f2f7; text-align:left;">' + row.name + streakTag + '</td>' +
+            const safeName = row.name.replace(/'/g, "\\'");
+            tr.innerHTML = '<td class="clickable-player" onclick="selectPlayerToInput(\'' + safeName + '\')" style="font-weight:600; background:#f2f2f7; text-align:left;" title="클릭하여 선택">' + row.name + streakTag + '</td>' +
                 '<td class="' + cWin + '">' + row.wins + '승<small style="color:var(--text-sub); font-weight:normal;">(' + row.matches + '전)</small></td>' +
                 '<td class="' + cRate + '">' + row.rate + '%</td>' +
                 '<td class="' + cTp + '">' + row.tp + '점</td>' +
@@ -1221,7 +1385,7 @@
         }
         await pushLogToCloud("[관리자 수정] 외부 데이터 연동 통합 편집 수정", null);
         
-        renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+        renderStatsTable(); renderLogHistory(); populatePlayerDropdowns();
         document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
     }
 
@@ -1234,7 +1398,6 @@
         appState = { players: { a1:'', a2:'', b1:'', b2:'' }, isLocked: false, roundNum: 1, matchHistory: [], currentInput: { scoreA: 50, scoreB: 50, onetwo: 'none', tichu: { a1:'none', a2:'none', b1:'none', b2:'none' } } };
         globalStats = {}; globalLogs = [];
         freezeInputs(false);
-        document.getElementById('name_a1').value = "A선수1"; document.getElementById('name_a2').value = "A선수2"; document.getElementById('name_b1').value = "B선수1"; document.getElementById('name_b2').value = "B선수2";
         document.getElementById('round-panel').style.display = 'none'; document.getElementById('board-panel').style.display = 'none'; document.getElementById('admin-panel').style.display = 'none'; document.body.classList.remove('admin-mode-active');
         document.getElementById('live-board-a').textContent = 0; document.getElementById('live-board-b').textContent = 0;
         
@@ -1244,7 +1407,7 @@
             await fetch(baseUrl + 'globalStats.json', { method: 'DELETE' });
             await fetch(baseUrl + 'globalLogs.json', { method: 'DELETE' });
         }
-        resetRoundInputValues(); renderStatsTable(); renderLogHistory(); buildPastPlayersDatalist();
+        resetRoundInputValues(); renderStatsTable(); renderLogHistory(); populatePlayerDropdowns();
         alert("💥 모든 자료가 공장 초기화되었습니다.");
     }
 </script>

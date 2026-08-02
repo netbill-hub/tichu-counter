@@ -345,7 +345,7 @@
             <thead>
                 <tr>
                     <th>이름</th>
-                    <th class="sortable" onclick="toggleSort('wins')">승수(전체판수) <span id="sort-icon-wins">▼</span></th>
+                    <th class="sortable" onclick="toggleSort('wins')">승수(Total) <span id="sort-icon-wins">▼</span></th>
                     <th class="sortable" onclick="toggleSort('rate')">승률 <span id="sort-icon-rate"></span></th>
                     <th class="sortable" onclick="toggleSort('tp')">티츄 점수 <span id="sort-icon-tp"></span></th>
                     <th class="sortable" onclick="toggleSort('avg')">평균점수 <span id="sort-icon-avg"></span></th>
@@ -539,7 +539,7 @@
             }
             globalLogs = parsedLogs;
             renderLogHistory();
-            renderStatsTable(); // 로그 로딩 완료 후 8월 평균점수 및 연승 계산 동기화
+            renderStatsTable(); 
         })
         .catch(err => {
             console.error("로그 다운로드 오류:", err);
@@ -901,23 +901,21 @@
         renderStatsTable();
     }
 
-    // 💡 [추가] 8월 1일 ~ 8월 31일 동안의 평균 점수 계산 로직
     function calculateAugustAvgScores() {
-        let scores = {}; // { playerName: { totalScore: 0, matchCount: 0 } }
+        let scores = {}; 
 
         if (!globalLogs || globalLogs.length === 0) return scores;
 
         globalLogs.forEach(log => {
             if (!log || !log.date || !log.details) return;
             
-            // 날짜 필터링 (8월 1일 ~ 8월 31일)
-            const dateStr = log.date.split(' ')[0]; // "YYYY-MM-DD"
+            const dateStr = log.date.split(' ')[0]; 
             const parts = dateStr.split('-');
             if (parts.length < 3) return;
             const month = parseInt(parts[1], 10);
             const year = parseInt(parts[0], 10);
 
-            if (year !== 2026 || month !== 8) return; // 8월 기록만 포함
+            if (year !== 2026 || month !== 8) return; 
 
             const d = log.details;
             if (!d.players || !d.history) return;
@@ -930,7 +928,6 @@
                 }
             });
 
-            // 라운드별 점수 집계
             d.history.forEach(round => {
                 const backOt = round.back_onetwo;
                 if (backOt === 'A') {
@@ -960,13 +957,11 @@
         return scores;
     }
 
-    // 💡 [추가] 플레이어별 최근 연승 / 연패 계산 로직
     function calculatePlayerStreaks() {
-        let streaks = {}; // { playerName: { streak: 0, type: 'win'|'lose' } }
+        let streaks = {}; 
         
         if (!globalLogs || globalLogs.length === 0) return streaks;
 
-        // 최신순 로그 정렬
         let sortedLogs = globalLogs.filter(l => l && l.details && l.details.players).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
         let playersChecked = {};
@@ -980,7 +975,7 @@
             const teamB = [d.players.b1, d.players.b2];
 
             [d.players.a1, d.players.a2, d.players.b1, d.players.b2].forEach(pName => {
-                if (!pName || playersChecked[pName]) return; // 이미 연승/연패 계산이 종결된 유저는 건너뜀
+                if (!pName || playersChecked[pName]) return; 
 
                 const isTeamA = teamA.includes(pName);
                 const isWinner = (isTeamA && winTeam === 'A') || (!isTeamA && winTeam === 'B');
@@ -992,7 +987,7 @@
                     if (streaks[pName].type === currentType) {
                         streaks[pName].streak += 1;
                     } else {
-                        playersChecked[pName] = true; // 승/패 상태가 바뀌면 연속 카운트 종료
+                        playersChecked[pName] = true; 
                     }
                 }
             });
@@ -1026,7 +1021,6 @@
             const obj = globalStats[k]; 
             const winRate = obj.matches > 0 ? Math.round((obj.wins / obj.matches) * 100) : 0;
             
-            // 8월 평균점수
             let avgVal = 0;
             if (augScores[obj.name] && augScores[obj.name].matchCount > 0) {
                 avgVal = Number((augScores[obj.name].totalScore / augScores[obj.name].matchCount).toFixed(1));
@@ -1061,14 +1055,14 @@
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             const cAvg = (row.avg === maxAvg && maxAvg > 0) ? 'gold-max' : '';
             
-            // 연승 태그 생성
+            // 💡 [개선] 연승/연패 소괄호() 추가
             let streakTag = "";
             if (streaks[row.name]) {
                 const s = streaks[row.name];
                 if (s.type === 'win') {
-                    streakTag = '<span class="streak-win">' + s.streak + '연승</span>';
+                    streakTag = '<span class="streak-win">(' + s.streak + '연승)</span>';
                 } else {
-                    streakTag = '<span class="streak-lose">' + s.streak + '연패</span>';
+                    streakTag = '<span class="streak-lose">(' + s.streak + '연패)</span>';
                 }
             }
 

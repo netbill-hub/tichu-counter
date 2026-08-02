@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>티츄 카운터 & 마스터 대시보드 (Apple Minimal)</title>
-    <!-- 화면 캡처 라이브러리 (실패 시에도 앱 실행에 지장 없도록 안전 장치 적용) -->
+    <!-- 화면 캡처 라이브러리 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -53,6 +53,7 @@
             padding: 22px;
             margin-bottom: 20px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            overflow-x: auto;
         }
         .flex-group { display: flex; gap: 15px; }
         .flex-child { flex: 1; min-width: 0; }
@@ -165,18 +166,16 @@
             border: 1px solid #e5e5ea; 
             padding: 10px 6px; 
             text-align: center; 
+            white-space: nowrap; /* 줄바꿈 금지 */
         }
         th { 
             background-color: #f2f2f7; 
             color: var(--text-color);
             font-weight: 600; 
-            white-space: nowrap; 
             word-break: keep-all;
         }
         th.sortable { cursor: pointer; user-select: none; }
         th.sortable:hover { background-color: #e5e5ea; }
-        
-        td:first-child { white-space: nowrap; }
 
         .gold-max { 
             color: #d97706 !important; 
@@ -205,6 +204,9 @@
         .history-info { margin-left: 15px; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px; }
         .history-del-btn { display: none; background: none; border: none; color: var(--team-b-color); cursor: pointer; font-size: 1rem; padding: 0 5px; }
         .admin-mode-active .history-del-btn { display: inline-block; }
+
+        .streak-win { color: var(--team-a-color); font-size: 0.8rem; font-weight: 600; margin-left: 4px; }
+        .streak-lose { color: var(--team-b-color); font-size: 0.8rem; font-weight: 600; margin-left: 4px; }
 
         .btn-shot-group { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
         #sync-indicator { font-size: 0.8rem; text-align: center; color: var(--text-sub); margin-top: -10px; margin-bottom: 8px; }
@@ -346,6 +348,7 @@
                     <th class="sortable" onclick="toggleSort('wins')">승수(전체판수) <span id="sort-icon-wins">▼</span></th>
                     <th class="sortable" onclick="toggleSort('rate')">승률 <span id="sort-icon-rate"></span></th>
                     <th class="sortable" onclick="toggleSort('tp')">티츄 점수 <span id="sort-icon-tp"></span></th>
+                    <th class="sortable" onclick="toggleSort('avg')">평균점수 <span id="sort-icon-avg"></span></th>
                 </tr>
             </thead>
             <tbody id="stats-tbody"></tbody>
@@ -536,6 +539,7 @@
             }
             globalLogs = parsedLogs;
             renderLogHistory();
+            renderStatsTable(); // 로그 로딩 완료 후 8월 평균점수 및 연승 계산 동기화
         })
         .catch(err => {
             console.error("로그 다운로드 오류:", err);
@@ -570,6 +574,7 @@
         if (!baseUrl) {
             globalLogs.unshift(newLogItem);
             renderLogHistory();
+            renderStatsTable();
             return;
         }
 
@@ -595,6 +600,7 @@
 
         globalLogs.unshift(newLogItem);
         renderLogHistory();
+        renderStatsTable();
     }
 
     function saveState() {
@@ -895,11 +901,111 @@
         renderStatsTable();
     }
 
+    // 💡 [추가] 8월 1일 ~ 8월 31일 동안의 평균 점수 계산 로직
+    function calculateAugustAvgScores() {
+        let scores = {}; // { playerName: { totalScore: 0, matchCount: 0 } }
+
+        if (!globalLogs || globalLogs.length === 0) return scores;
+
+        globalLogs.forEach(log => {
+            if (!log || !log.date || !log.details) return;
+            
+            // 날짜 필터링 (8월 1일 ~ 8월 31일)
+            const dateStr = log.date.split(' ')[0]; // "YYYY-MM-DD"
+            const parts = dateStr.split('-');
+            if (parts.length < 3) return;
+            const month = parseInt(parts[1], 10);
+            const year = parseInt(parts[0], 10);
+
+            if (year !== 2026 || month !== 8) return; // 8월 기록만 포함
+
+            const d = log.details;
+            if (!d.players || !d.history) return;
+
+            const sessionPlayers = [d.players.a1, d.players.a2, d.players.b1, d.players.b2];
+            sessionPlayers.forEach(name => {
+                if (name) {
+                    if (!scores[name]) scores[name] = { totalScore: 0, matchCount: 0 };
+                    scores[name].matchCount += 1;
+                }
+            });
+
+            // 라운드별 점수 집계
+            d.history.forEach(round => {
+                const backOt = round.back_onetwo;
+                if (backOt === 'A') {
+                    if (d.players.a1) scores[d.players.a1].totalScore += 100;
+                    if (d.players.a2) scores[d.players.a2].totalScore += 100;
+                } else if (backOt === 'B') {
+                    if (d.players.b1) scores[d.players.b1].totalScore += 100;
+                    if (d.players.b2) scores[d.players.b2].totalScore += 100;
+                }
+
+                const tichu = round.back_tichu;
+                if (tichu) {
+                    ['a1', 'a2', 'b1', 'b2'].forEach(pKey => {
+                        const pName = d.players[pKey];
+                        const status = tichu[pKey];
+                        if (pName && scores[pName]) {
+                            if (status === 'lt_win') scores[pName].totalScore += 200;
+                            else if (status === 'lt_fail') scores[pName].totalScore -= 200;
+                            else if (status === 'st_win') scores[pName].totalScore += 100;
+                            else if (status === 'st_fail') scores[pName].totalScore -= 100;
+                        }
+                    });
+                }
+            });
+        });
+
+        return scores;
+    }
+
+    // 💡 [추가] 플레이어별 최근 연승 / 연패 계산 로직
+    function calculatePlayerStreaks() {
+        let streaks = {}; // { playerName: { streak: 0, type: 'win'|'lose' } }
+        
+        if (!globalLogs || globalLogs.length === 0) return streaks;
+
+        // 최신순 로그 정렬
+        let sortedLogs = globalLogs.filter(l => l && l.details && l.details.players).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+        let playersChecked = {};
+
+        sortedLogs.forEach(log => {
+            const d = log.details;
+            if (!d.winnerTeam || !d.players) return;
+
+            const winTeam = d.winnerTeam;
+            const teamA = [d.players.a1, d.players.a2];
+            const teamB = [d.players.b1, d.players.b2];
+
+            [d.players.a1, d.players.a2, d.players.b1, d.players.b2].forEach(pName => {
+                if (!pName || playersChecked[pName]) return; // 이미 연승/연패 계산이 종결된 유저는 건너뜀
+
+                const isTeamA = teamA.includes(pName);
+                const isWinner = (isTeamA && winTeam === 'A') || (!isTeamA && winTeam === 'B');
+
+                if (!streaks[pName]) {
+                    streaks[pName] = { streak: 1, type: isWinner ? 'win' : 'lose' };
+                } else {
+                    const currentType = isWinner ? 'win' : 'lose';
+                    if (streaks[pName].type === currentType) {
+                        streaks[pName].streak += 1;
+                    } else {
+                        playersChecked[pName] = true; // 승/패 상태가 바뀌면 연속 카운트 종료
+                    }
+                }
+            });
+        });
+
+        return streaks;
+    }
+
     function renderStatsTable() {
         const tbody = document.getElementById('stats-tbody'); if(!tbody) return;
         tbody.innerHTML = ''; const keys = Object.keys(globalStats);
         
-        ['wins', 'rate', 'tp'].forEach(c => {
+        ['wins', 'rate', 'tp', 'avg'].forEach(c => {
             const iconEl = document.getElementById('sort-icon-' + c);
             if(iconEl) {
                 if(currentSort.col === c) {
@@ -910,16 +1016,35 @@
             }
         });
 
-        if(keys.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-sub);">기록된 통계 데이터가 없습니다.</td></tr>'; return; }
+        if(keys.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-sub);">기록된 통계 데이터가 없습니다.</td></tr>'; return; }
         
-        let maxWin = -1; let maxRate = -1; let maxTp = -1;
+        const augScores = calculateAugustAvgScores();
+        const streaks = calculatePlayerStreaks();
+
+        let maxWin = -1; let maxRate = -1; let maxTp = -1; let maxAvg = -999;
         const processedRows = keys.map(k => {
             const obj = globalStats[k]; 
             const winRate = obj.matches > 0 ? Math.round((obj.wins / obj.matches) * 100) : 0;
+            
+            // 8월 평균점수
+            let avgVal = 0;
+            if (augScores[obj.name] && augScores[obj.name].matchCount > 0) {
+                avgVal = Number((augScores[obj.name].totalScore / augScores[obj.name].matchCount).toFixed(1));
+            }
+
             if(obj.wins > maxWin) maxWin = obj.wins; 
             if(winRate > maxRate) maxRate = winRate; 
             if(obj.tichuPoints > maxTp) maxTp = obj.tichuPoints;
-            return { name: obj.name, wins: obj.wins, matches: obj.matches, rate: winRate, tp: obj.tichuPoints };
+            if(avgVal > maxAvg) maxAvg = avgVal;
+
+            return { 
+                name: obj.name, 
+                wins: obj.wins, 
+                matches: obj.matches, 
+                rate: winRate, 
+                tp: obj.tichuPoints,
+                avg: avgVal
+            };
         });
 
         processedRows.sort((a, b) => {
@@ -934,11 +1059,24 @@
             const cWin = (row.wins === maxWin && maxWin > 0) ? 'gold-max' : '';
             const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
+            const cAvg = (row.avg === maxAvg && maxAvg > 0) ? 'gold-max' : '';
             
-            tr.innerHTML = '<td style="font-weight:600; background:#f2f2f7;">' + row.name + '</td>' +
+            // 연승 태그 생성
+            let streakTag = "";
+            if (streaks[row.name]) {
+                const s = streaks[row.name];
+                if (s.type === 'win') {
+                    streakTag = '<span class="streak-win">' + s.streak + '연승</span>';
+                } else {
+                    streakTag = '<span class="streak-lose">' + s.streak + '연패</span>';
+                }
+            }
+
+            tr.innerHTML = '<td style="font-weight:600; background:#f2f2f7; text-align:left;">' + row.name + streakTag + '</td>' +
                 '<td class="' + cWin + '">' + row.wins + '승<small style="color:var(--text-sub); font-weight:normal;">(' + row.matches + '전)</small></td>' +
                 '<td class="' + cRate + '">' + row.rate + '%</td>' +
-                '<td class="' + cTp + '">' + row.tp + '점</td>';
+                '<td class="' + cTp + '">' + row.tp + '점</td>' +
+                '<td class="' + cAvg + '">' + row.avg + '점</td>';
             tbody.appendChild(tr);
         });
     }
@@ -1019,6 +1157,7 @@
 
         globalLogs = globalLogs.filter(l => l && String(l.id) !== String(id));
         renderLogHistory();
+        renderStatsTable();
 
         const baseUrl = getCleanBaseUrl();
         if (baseUrl && firebaseKey && firebaseKey !== 'undefined') {

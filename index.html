@@ -564,11 +564,9 @@
         }
     }
 
-    // 💡 [개선] 판수(matches)가 가장 많은 플레이어들을 상위에 기본으로 자동 채우기
     function populatePlayerDropdowns() {
         const playerNames = Object.keys(globalStats);
         
-        // 판수(matches) 기준 내림차순 정렬 (판수가 같으면 승리 순)
         const sortedByMatches = playerNames.map(name => ({
             name: name,
             matches: globalStats[name].matches || 0,
@@ -591,7 +589,6 @@
                 selectEl.appendChild(opt);
             });
 
-            // 💡 현재 선택된 값이 없다면, 가장 플레이를 많이 한 플레이어를 순서대로(1~4위) 디폴트 설정
             if (currentVal && playerNames.includes(currentVal)) {
                 selectEl.value = currentVal;
             } else if (sortedByMatches[index]) {
@@ -1066,6 +1063,7 @@
         renderStatsTable();
     }
 
+    // 💡 [수정] 8월 1일 ~ 8월 31일 기준 Avg-score 계산 알고리즘
     function calculateAugustAvgScores() {
         let scores = {}; 
 
@@ -1077,9 +1075,10 @@
             const dateStr = log.date.split(' ')[0]; 
             const parts = dateStr.split('-');
             if (parts.length < 3) return;
-            const month = parseInt(parts[1], 10);
             const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
 
+            // 8월 데이터만 누적 필터링
             if (year !== 2026 || month !== 8) return; 
 
             const d = log.details;
@@ -1089,11 +1088,24 @@
             sessionPlayers.forEach(name => {
                 if (name) {
                     if (!scores[name]) scores[name] = { totalScore: 0, matchCount: 0 };
-                    scores[name].matchCount += 1;
+                    scores[name].matchCount += 1; // 경기당 평균 계산을 위해 경기 수 카운트
                 }
             });
 
             d.history.forEach(round => {
+                // 1. 정규 스코어링 절반(50%) 계산
+                const scoreA = typeof round.back_scoreA === 'number' ? round.back_scoreA : 50;
+                const scoreB = typeof round.back_scoreB === 'number' ? round.back_scoreB : 50;
+
+                const halfA = scoreA / 2;
+                const halfB = scoreB / 2;
+
+                if (d.players.a1) scores[d.players.a1].totalScore += halfA;
+                if (d.players.a2) scores[d.players.a2].totalScore += halfA;
+                if (d.players.b1) scores[d.players.b1].totalScore += halfB;
+                if (d.players.b2) scores[d.players.b2].totalScore += halfB;
+
+                // 2. 원투 성공 시 플레이어당 +100점 계산
                 const backOt = round.back_onetwo;
                 if (backOt === 'A') {
                     if (d.players.a1) scores[d.players.a1].totalScore += 100;
@@ -1103,6 +1115,7 @@
                     if (d.players.b2) scores[d.players.b2].totalScore += 100;
                 }
 
+                // 3. 라티/스티 성공/실패 당사자 계산 (+200, -200 / +100, -100)
                 const tichu = round.back_tichu;
                 if (tichu) {
                     ['a1', 'a2', 'b1', 'b2'].forEach(pKey => {
@@ -1186,6 +1199,7 @@
             const obj = globalStats[k]; 
             const winRate = obj.matches > 0 ? Math.round((obj.wins / obj.matches) * 100) : 0;
             
+            // 💡 [수정] 경기당 평균 점수로 집계 (소수점 한자리)
             let avgVal = 0;
             if (augScores[obj.name] && augScores[obj.name].matchCount > 0) {
                 avgVal = Number((augScores[obj.name].totalScore / augScores[obj.name].matchCount).toFixed(1));

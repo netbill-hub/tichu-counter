@@ -399,11 +399,11 @@
         <table>
             <thead>
                 <tr>
-                    <th>Player <small style="font-weight:normal; color:var(--text-sub);">(클릭시 선택)</small></th>
+                    <th>Player</th>
                     <th class="sortable" onclick="toggleSort('wins')">Win <span id="sort-icon-wins">▼</span></th>
                     <th class="sortable" onclick="toggleSort('rate')">Rate <small style="font-size:0.7rem;">(≥7전)</small> <span id="sort-icon-rate"></span></th>
                     <th class="sortable" onclick="toggleSort('tp')">T-Score <span id="sort-icon-tp"></span></th>
-                    <th class="sortable" onclick="toggleSort('avg')">OneTwoPoint <span id="sort-icon-avg"></span></th>
+                    <th class="sortable" onclick="toggleSort('avg')">OneTwo <span id="sort-icon-avg"></span></th>
                 </tr>
             </thead>
             <tbody id="stats-tbody"></tbody>
@@ -1173,7 +1173,6 @@
         const processedRows = keys.map(k => {
             const obj = globalStats[k]; 
             
-            // 💡 [수정] 6전 이하 유저는 제외 (7전 이상부터 승률 계산)
             const isRateQualified = obj.matches >= 7;
             const winRate = isRateQualified ? Math.round((obj.wins / obj.matches) * 100) : 0;
             
@@ -1206,7 +1205,6 @@
             const tr = document.createElement('tr');
             const cWin = (row.wins === maxWin && maxWin > 0) ? 'gold-max' : '';
             
-            // 💡 6전 이하 유저는 승률 하이라이트(gold-max)에서 제외
             const cRate = (row.rate === maxRate && maxRate > 0 && row.isRateQualified) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             const cAvg = (row.avg === maxAvg && maxAvg > 0) ? 'gold-max' : '';
@@ -1223,7 +1221,6 @@
                 }
             }
 
-            // 💡 [수정] 6전 이하 유저는 (7전 미달)을 회색 소형 폰트로 표기
             const rateDisplay = row.isRateQualified 
                 ? row.rate + '%' 
                 : '<small style="color:var(--text-sub); font-size:0.75rem;">(7전 미달)</small>';

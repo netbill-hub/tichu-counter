@@ -401,7 +401,7 @@
                 <tr>
                     <th>Player <small style="font-weight:normal; color:var(--text-sub);">(클릭시 선택)</small></th>
                     <th class="sortable" onclick="toggleSort('wins')">Win <span id="sort-icon-wins">▼</span></th>
-                    <th class="sortable" onclick="toggleSort('rate')">Rate <span id="sort-icon-rate"></span></th>
+                    <th class="sortable" onclick="toggleSort('rate')">Rate <small style="font-size:0.7rem;">(≥7전)</small> <span id="sort-icon-rate"></span></th>
                     <th class="sortable" onclick="toggleSort('tp')">T-Score <span id="sort-icon-tp"></span></th>
                     <th class="sortable" onclick="toggleSort('avg')">OneTwoPoint <span id="sort-icon-avg"></span></th>
                 </tr>
@@ -1063,7 +1063,6 @@
         renderStatsTable();
     }
 
-    // 💡 [수정] 8월 1일 ~ 8월 31일 원투(OneTwoPoint) 성공 횟수 계산 함수
     function calculateAugustAvgScores() {
         let scores = {}; 
 
@@ -1078,7 +1077,6 @@
             const year = parseInt(parts[0], 10);
             const month = parseInt(parts[1], 10);
 
-            // 8월 데이터만 누적 필터링
             if (year !== 2026 || month !== 8) return; 
 
             const d = log.details;
@@ -1087,7 +1085,6 @@
             d.history.forEach(round => {
                 const backOt = round.back_onetwo;
                 
-                // 원투 성공 시 각 승리팀 유저에게 +1 카운트
                 if (backOt === 'A') {
                     if (d.players.a1) {
                         if (!scores[d.players.a1]) scores[d.players.a1] = 0;
@@ -1175,13 +1172,15 @@
         let maxWin = -1; let maxRate = -1; let maxTp = -1; let maxAvg = -1;
         const processedRows = keys.map(k => {
             const obj = globalStats[k]; 
-            const winRate = obj.matches > 0 ? Math.round((obj.wins / obj.matches) * 100) : 0;
             
-            // 💡 [수정] 8월 원투 성공 횟수(OneTwoPoint) 대입
+            // 💡 [수정] 6전 이하 유저는 제외 (7전 이상부터 승률 계산)
+            const isRateQualified = obj.matches >= 7;
+            const winRate = isRateQualified ? Math.round((obj.wins / obj.matches) * 100) : 0;
+            
             let avgVal = augOneTwoScores[obj.name] || 0;
 
             if(obj.wins > maxWin) maxWin = obj.wins; 
-            if(winRate > maxRate) maxRate = winRate; 
+            if(winRate > maxRate && isRateQualified) maxRate = winRate; 
             if(obj.tichuPoints > maxTp) maxTp = obj.tichuPoints;
             if(avgVal > maxAvg) maxAvg = avgVal;
 
@@ -1190,6 +1189,7 @@
                 wins: obj.wins, 
                 matches: obj.matches, 
                 rate: winRate, 
+                isRateQualified: isRateQualified,
                 tp: obj.tichuPoints,
                 avg: avgVal
             };
@@ -1205,7 +1205,9 @@
         processedRows.forEach(row => {
             const tr = document.createElement('tr');
             const cWin = (row.wins === maxWin && maxWin > 0) ? 'gold-max' : '';
-            const cRate = (row.rate === maxRate && maxRate > 0) ? 'gold-max' : '';
+            
+            // 💡 6전 이하 유저는 승률 하이라이트(gold-max)에서 제외
+            const cRate = (row.rate === maxRate && maxRate > 0 && row.isRateQualified) ? 'gold-max' : '';
             const cTp = (row.tp === maxTp && maxTp > 0) ? 'gold-max' : '';
             const cAvg = (row.avg === maxAvg && maxAvg > 0) ? 'gold-max' : '';
             
@@ -1221,10 +1223,15 @@
                 }
             }
 
+            // 💡 [수정] 6전 이하 유저는 (7전 미달)을 회색 소형 폰트로 표기
+            const rateDisplay = row.isRateQualified 
+                ? row.rate + '%' 
+                : '<small style="color:var(--text-sub); font-size:0.75rem;">(7전 미달)</small>';
+
             const safeName = row.name.replace(/'/g, "\\'");
             tr.innerHTML = '<td class="clickable-player" onclick="selectPlayerToInput(\'' + safeName + '\')" style="font-weight:600; background:#f2f2f7; text-align:left;" title="클릭하여 선택">' + row.name + streakTag + '</td>' +
                 '<td class="' + cWin + '">' + row.wins + '승<small style="color:var(--text-sub); font-weight:normal;">(' + row.matches + '전)</small></td>' +
-                '<td class="' + cRate + '">' + row.rate + '%</td>' +
+                '<td class="' + cRate + '">' + rateDisplay + '</td>' +
                 '<td class="' + cTp + '">' + row.tp + '점</td>' +
                 '<td class="' + cAvg + '">' + row.avg + '회</td>';
             tbody.appendChild(tr);
